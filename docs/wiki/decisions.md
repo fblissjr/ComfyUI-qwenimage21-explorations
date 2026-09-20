@@ -43,6 +43,21 @@ date heading is accurate, not an artifact of a young page.
   unknown (whether the artifact repacks cleanly into the kernel's expected
   layout). In [`next_steps.md`](next_steps.md).
 
+- **ComfyUI mis-tokenizes mark-heavy scripts for these expanders, and it is not
+  a stale tokenizer bundle.** The bundled vocabulary and merge rules are
+  identical to the checkpoints', so shipping a different bundle would change
+  nothing. What differs is the pre-tokenizer: core builds a Qwen2 tokenizer
+  whose hardcoded regex matches letters, while these checkpoints declare letters
+  **and combining marks**, so Thai and Devanagari split where they should not.
+  Round-trip is safe both ways — nothing is corrupted; the model receives a
+  segmentation it was never trained on, on exactly the case the edit prompt
+  gives a worked example for. The heylook path is unaffected, and **the
+  conditioning encoder is unaffected and was checked the same way** — it
+  declares no custom regex, so core's choice is correct for it. The fix belongs
+  upstream and is not ours to carry. Strategy section 29;
+  `tests/test_tokenizer_parity.py` xfails strictly, so it becomes XPASS the day
+  upstream fixes it.
+
 - **Calibration data is the priority surface, not the recipe** (the owner, via
   h3guy). It is the input with the most control and the least prior art, and it
   is where the previous effort was weakest — that effort spent its time on the

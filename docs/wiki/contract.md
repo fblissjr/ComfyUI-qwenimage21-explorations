@@ -92,7 +92,10 @@ exists to prevent:
   prompt requires each image's role — which is the canvas, which supplies
   material. Only the presence of tags is checked.
 - **Anything about the rewrite's quality**, its language, or whether it
-  preserved the user's own action verbs and spatial relations.
+  preserved the user's own action verbs and spatial relations. The edit
+  prompt's language rule is worth knowing about separately: the ComfyUI path
+  has a tokenization divergence on exactly the scripts it names —
+  [`decisions.md`](decisions.md), and strategy section 29.
 - **The thinking trace.** Its content is never inspected. Its *length* is the
   thing that bites, by way of the token cap — [`stages.md`](stages.md).
 - **The edit-mode taxonomy.** [`../quantization-strategy.md`](../quantization-strategy.md)

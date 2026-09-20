@@ -26,6 +26,10 @@ research that shaped it.
   ComfyUI and no torch. Reports layers, configs and module roles with in/out
   features, and exits non-zero on `full_precision_matrix_mult`.
 - `scripts/smoke_heylook.py` — end-to-end run over the upstream example briefs.
+- `docs/wiki/` — hand-written router pages, linked from the README: the stage
+  cross-index with its guard column, the answer contract's authority chain,
+  dated decisions and withdrawals, the `coderef/` map, and the open items
+  gathered out of the long documents. Nothing generates or checks them.
 - `docs/quantization-strategy.md` and two research reports.
 - 24 tests.
 

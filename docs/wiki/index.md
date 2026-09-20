@@ -8,9 +8,10 @@ the owner is right.
 
 **Most of what is written down here is research, not results.** It was read out
 of the checkpoints, out of ComfyUI core, out of the upstream repo, and out of a
-retired predecessor repo. One end-to-end run has happened. Each page below says
-which kind of thing it is holding, and the documents themselves tag their
-claims.
+retired predecessor repo. There has been one end-to-end run, and its result is
+recorded in [`../quantization-strategy.md`](../quantization-strategy.md)
+section 25. Each page below says which kind of thing it is holding, and the
+documents themselves tag their claims.
 
 ## Written pages
 
@@ -20,7 +21,7 @@ claims.
 | [`contract.md`](contract.md) | **the answer contract.** What the checkpoints' system prompts state, what `answer.grade()` encodes as this repo's reading of them, and what neither covers. The authority is not in this repo, which is the first thing to know about it |
 | [`decisions.md`](decisions.md) | what was decided, withdrawn or corrected, and when. Newest first, one line per decision with where it lives now |
 | [`references.md`](references.md) | the checkouts under `coderef/`: what each one is for, and what it is not evidence of. Read before proposing a borrow |
-| [`next_steps.md`](next_steps.md) | **what to do next, and only pointers to why.** The open items are scattered across four long documents; this is the entry point to them |
+| [`next_steps.md`](next_steps.md) | **what to do next, and only pointers to why.** The open items are scattered across the long documents; this is the entry point to them |
 
 ## Read these before you start
 
@@ -41,7 +42,7 @@ claims.
 |---|---|
 | `src/qwenimage21_explorations/` | pure modules, importable without ComfyUI. **Their docstrings are the owner documents for their own behaviour** and carry the reasons; read the module before any page here that summarises it |
 | `src/qwenimage21_explorations/nodes/` | ComfyUI V3 nodes wrapping those modules, adding nothing. The node list is append-only: saved graphs match widget values by index |
-| `scripts/config_census.py` | reads a quantized checkpoint's header with no GPU, no ComfyUI and no torch. Exits non-zero on `full_precision_matrix_mult`, which makes a checkpoint storage-only however good its format |
+| `scripts/config_census.py` | reads a quantized checkpoint's header with no GPU, no ComfyUI and no torch. Exits non-zero on `full_precision_matrix_mult`, the flag that makes a checkpoint storage-only however good its format |
 | `scripts/smoke_heylook.py` | the end-to-end run, over the upstream example briefs verbatim |
 | `tests/` | the run command is in [`../../README.md`](../../README.md). What they do and do not cover is [`stages.md`](stages.md)'s guard column |
 | `templates/` | local system-prompt variants only. A variant there is a hypothesis, not a drop-in |

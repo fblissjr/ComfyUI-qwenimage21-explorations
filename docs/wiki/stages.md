@@ -37,7 +37,8 @@ owns why there is no provider abstraction over them.
 
 | stage | our code | owner | guard | compare against |
 |---|---|---|---|---|
-| generation, ComfyUI path | **not ours.** Core's text-generation node on `CLIP.generate`, driven by the string `PEPrompt` builds | [`../quantization-strategy.md`](../quantization-strategy.md) section 17 for what differs from the reference settings; section 26 for why its hardcoded stop set lands safely here | **nothing.** No test exercises this path, and the check that makes our string authoritative is a `startswith` test inside ComfyUI's tokenizer — `tests/test_prompt_structure.py` pins the properties that test depends on, not the test itself | `ComfyUI/comfy/text_encoders/qwen35.py` |
+| tokenization, ComfyUI path | **not ours.** Core's bundled qwen35 tokenizer | [`../quantization-strategy.md`](../quantization-strategy.md) section 29 | `tests/test_tokenizer_parity.py`, against each checkpoint's own tokenizer. It **xfails strictly**, so it turns into XPASS the day upstream honours the checkpoint's pre-tokenizer regex. Needs the checkpoints on disk | each checkpoint's `tokenizer.json`, which declares the regex core ignores |
+| generation, ComfyUI path | **not ours.** Core's `TextGenerate` on `CLIP.generate`, driven by the string `PEPrompt` builds | [`../quantization-strategy.md`](../quantization-strategy.md) section 17 for what differs from the reference settings; section 26 for why its hardcoded stop set lands safely here | **nothing.** No test exercises this path, and the check that makes our string authoritative is a `startswith` test inside ComfyUI's tokenizer — `tests/test_prompt_structure.py` pins the properties that test depends on, not the test itself | `ComfyUI/comfy/text_encoders/qwen35.py` |
 | generation, heylook path | `backends/heylook.py::generate` | the module docstring; [`../quantization-strategy.md`](../quantization-strategy.md) section 17 | `tests/test_heylook.py` covers response normalisation and the truncation flag. **Nothing** covers the request, which needs a live server | the server's `/v1/capabilities` and its per-model `sampler_defaults`, which are what the harness exists to override |
 
 ## Reading the answer
@@ -52,7 +53,7 @@ owns why there is no provider abstraction over them.
 
 | stage | our code | owner | guard | compare against |
 |---|---|---|---|---|
-| conditioning from the rewritten prompt | **not ours.** Core's `TextEncodeQwenImage21` | [`../bridge-encoder-findings.md`](../bridge-encoder-findings.md) for what the predecessor learned on the older stack, and how much of it transfers | **nothing.** No code here touches this stage yet | `ComfyUI/comfy/text_encoders/qwen_image21.py` |
+| conditioning from the rewritten prompt | **not ours.** Core's `TextEncodeQwenImage21` | [`../bridge-encoder-findings.md`](../bridge-encoder-findings.md) for what the predecessor learned on the older stack, and how much of it transfers | `tests/test_tokenizer_parity.py` also covers the encoder's tokenizer against the pipeline's own, and found no divergence. **Nothing else** here touches this stage | `ComfyUI/comfy/text_encoders/qwen_image21.py` |
 | checkpoint census | `scripts/config_census.py` | its own docstring, which carries why the output has the columns it has | its exit code is the guard, and the scan is exhaustive by construction — the docstring says why sampling by payload length does not work | — |
 | end-to-end run | `scripts/smoke_heylook.py` | [`../quantization-strategy.md`](../quantization-strategy.md) section 25 | its exit code: it fails unless every completed row is contract-clean | upstream's example briefs, which it runs verbatim, typos and mixed languages preserved |
 
