@@ -1546,3 +1546,69 @@ came out negative.
   custom DiT -- and returned to native both times. The wrapper stack was
   "complete but never validated with actual models", then archived for VRAM
   leaks.
+
+## 29. ComfyUI mis-tokenizes mark-heavy scripts for qwen35 models
+
+Root cause found. **Not** a stale bundled tokenizer, and bundling a different
+one would not fix it.
+
+### The vocabulary is already correct
+
+ComfyUI's `ComfyUI/comfy/text_encoders/qwen35_tokenizer/` and the checkpoint's
+`tokenizer.json` are **identical** where it counts:
+
+| | ComfyUI bundled | checkpoint |
+|---|---|---|
+| base vocab entries | 248044 | 248044 |
+| merge rules | 247587 | 247587 |
+| rule sets equal | yes | |
+| rule ordering equal | yes | |
+
+Special tokens also resolve to the same ids (section 28). So the vocabulary,
+the merges and the id space are right.
+
+### The pre-tokenizer is not
+
+ComfyUI builds a `transformers.models.qwen2.tokenization_qwen2.Qwen2Tokenizer`.
+Its hardcoded `PRETOKENIZE_REGEX` uses `\p{L}+` -- letters only. The Qwen3.5
+checkpoints declare a different one in `tokenizer_config.json::pretokenize_regex`
+and in `tokenizer.json`'s `pre_tokenizer`, using `[\p{L}\p{M}]+` -- letters
+**and combining marks**.
+
+Thai and Devanagari lean on combining marks, so under the Qwen2 regex those
+marks split away from their base letters:
+
+    Thai "เพิ่ม"   Qwen2   -> ['เพ', 'ิ่', 'ม']
+                   qwen3_5 -> ['เพิ่ม']
+
+### Measured scope
+
+Comparing the checkpoint's tokenizer against ComfyUI's on the languages the I21
+system prompt's language decision (B) explicitly names:
+
+| script | ckpt tokens | ComfyUI tokens | |
+|---|---|---|---|
+| Chinese, Japanese, Korean, Arabic, French, Cyrillic, emoji | = | = | ok |
+| English prose, JSON answers, quoted text | = | = | ok |
+| full T21 system prompt (2427 tokens) | 2427 | 2427 | ok |
+| **Thai** | 4 | 10 | **diverges** |
+| **Hindi** | 11 | 17 | **diverges** |
+
+### Severity: distribution mismatch, not corruption
+
+Round-trip is safe in both directions -- ComfyUI decodes its own ids and the
+checkpoint's ids back to the identical string. So nothing is mangled on the way
+out. What breaks is that the model receives a *segmentation it was never trained
+on* for those scripts, which is a quality risk on exactly the case the I21
+system prompt calls out: its worked example is an image whose text is mostly
+Thai, where the rendered output must be Thai.
+
+Unaffected on the heylook path, which applies the checkpoint's own tokenizer
+server-side.
+
+### The fix
+
+Not a tokenizer bundle -- the vocab is already correct. ComfyUI needs the
+qwen3_5 pre-tokenizer regex rather than Qwen2's. Worth reporting upstream; it
+affects every qwen35 model on any mark-heavy script (Thai, Devanagari, Lao,
+Khmer and similar), not just these two checkpoints.

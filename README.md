@@ -1,4 +1,5 @@
 <img src="assets/banner.jpg" alt="16mm film style banner of the shrug emoji guy shrugging against a dark neutral studio background" width="100%">
+
 # ComfyUI-qwenimage21-explorations
 
 Tinkering and research hub for the Qwen Image ecosystem
