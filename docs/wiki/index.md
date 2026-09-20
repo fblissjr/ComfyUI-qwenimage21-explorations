@@ -6,6 +6,12 @@ Written by hand. A router, not an authority: it states no fact about these
 models that is not owned somewhere else, and where it disagrees with an owner
 the owner is right.
 
+**One exception, declared rather than left to be noticed.**
+[`upstream.md`](upstream.md) is an owner page living in a router directory: it
+states the cross-implementation read because no document under `docs/` owns
+that, and inventing one to route to would be ceremony. Every other page here
+routes.
+
 **Most of what is written down here is research, not results.** It was read out
 of the checkpoints, out of ComfyUI core, out of the upstream repo, and out of a
 retired predecessor repo. There has been one end-to-end run, and its result is
@@ -20,6 +26,7 @@ documents themselves tag their claims.
 | [`stages.md`](stages.md) | one row per stage of one expansion: our code, the document that owns it, the check that would go red if it broke, and the implementation to compare against. The guard column is the point |
 | [`contract.md`](contract.md) | **the answer contract.** What the checkpoints' system prompts state, what `answer.grade()` encodes as this repo's reading of them, and what neither covers. The authority is not in this repo, which is the first thing to know about it |
 | [`decisions.md`](decisions.md) | what was decided, withdrawn or corrected, and when. Newest first, one line per decision with where it lives now |
+| [`upstream.md`](upstream.md) | **how the other implementations run 2.1**, for text-to-image and for edit: what five of them agree on, the three bookkeeping strategies they use for one fusion, and the stage none of them runs. The wiki's one owner page |
 | [`references.md`](references.md) | the checkouts under `coderef/`: what each one is for, and what it is not evidence of. Read before proposing a borrow |
 | [`next_steps.md`](next_steps.md) | **what to do next, and only pointers to why.** The open items are scattered across the long documents; this is the entry point to them |
 

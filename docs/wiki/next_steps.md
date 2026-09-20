@@ -50,6 +50,21 @@ the line starts from the right place rather than from the top.
   script, not only these checkpoints. Strategy section 29, "The fix";
   [`decisions.md`](decisions.md) for what it does and does not break.
 
+- **A transformers change will move the correct way to read the encoder, for
+  everyone.** All five implementations want the pre-final-norm hidden state;
+  diffusers gets it with a forward hook and carries a TODO to replace that with
+  a config flag once `tie_last_hidden_states=False` ships upstream, while
+  sglang's route depends on the installed transformers version behaving as 4.57
+  did. [`upstream.md`](upstream.md) section 1 has the mechanisms side by side.
+  **This is the kind of dependency that rots without failing**, so it is worth
+  a note rather than a watch.
+- **Expander integration is a solved shape in at least one serving engine, and
+  unclaimed here.** vllm-omni's `prompt_expand_func` is an engine-level hook
+  that other model families register and Qwen-Image does not —
+  [`upstream.md`](upstream.md) section 4. Nothing says this repo should build
+  that; it says the design question has a worked answer to read before anyone
+  invents one.
+
 - **A prediction is already written down and is cheap to test.**
   [`../convrot-research.md`](../convrot-research.md), "Things to verify before
   relying on them", item 1 states in advance what every layer's group size

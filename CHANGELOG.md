@@ -30,6 +30,10 @@ research that shaped it.
   cross-index with its guard column, the answer contract's authority chain,
   dated decisions and withdrawals, the `coderef/` map, and the open items
   gathered out of the long documents. Nothing generates or checks them.
+- `docs/wiki/upstream.md` — how diffusers, sglang, DiffSynth-Studio, LightX2V
+  and ComfyUI core each run 2.1 for text-to-image and for edit: the conditioning
+  contract they agree on, the three bookkeeping strategies they use for one
+  fusion, and the expander stage none of them runs. The wiki's one owner page.
 - `docs/quantization-strategy.md` and two research reports.
 - 24 tests.
 

@@ -43,6 +43,28 @@ date heading is accurate, not an artifact of a young page.
   unknown (whether the artifact repacks cleanly into the kernel's expected
   layout). In [`next_steps.md`](next_steps.md).
 
+- **The predecessor's two-resolution idea does not port to 2.1, and that is a
+  property of the architecture rather than a preference.**
+  [`../bridge-encoder-findings.md`](../bridge-encoder-findings.md) Finding 3
+  calls separate vision-tower and VAE resolution paths for one image the
+  cleanest idea in that repo. In 2.1 each vision-language image slot stands for
+  a fixed group of latent tokens, so the encoder's slot count and the VAE's
+  latent grid are two views of one number: diffusers **raises** when they
+  disagree, diffusers and sglang each say in place that one resize feeds both,
+  and LightX2V suppresses the processor's own resize because a second one can
+  change the slot count. Finding 3 stands as a description of the older stack
+  and is withdrawn as something to carry forward.
+  [`upstream.md`](upstream.md) section 2.
+
+- **Hardcoding the system-turn drop index is settled against, five
+  implementations to nothing.** All five derive it — four by tokenizing the
+  system message, ComfyUI core by scanning the token stream for the second
+  `<|im_start|>` and adjusting for images expanded ahead of it. This is the
+  same hazard [`../bridge-encoder-findings.md`](../bridge-encoder-findings.md)
+  Finding 1 records the predecessor paying for, and it is now settled by
+  agreement rather than by our reading of one repo's mistake.
+  [`upstream.md`](upstream.md) section 1.
+
 - **ComfyUI mis-tokenizes mark-heavy scripts for these expanders, and it is not
   a stale tokenizer bundle.** The bundled vocabulary and merge rules are
   identical to the checkpoints', so shipping a different bundle would change
