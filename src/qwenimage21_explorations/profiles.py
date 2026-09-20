@@ -13,9 +13,9 @@ Pure data: importable without ComfyUI, so scripts and nodes share one source.
 from __future__ import annotations
 
 PROFILES: dict[str, dict] = {
-    "t2i": dict(temperature=1.0, top_p=0.95, top_k=20,
-                presence_penalty=1.5, max_tokens=24000),
-    "edit": dict(temperature=1.0, top_p=0.95, top_k=20,
+    "t2i": dict(temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                presence_penalty=1.5, max_tokens=16256),
+    "edit": dict(temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
                  presence_penalty=0.0, max_tokens=24000),
 }
 
@@ -26,6 +26,7 @@ PROFILES: dict[str, dict] = {
 # already argmax, so the epsilon buys nothing and scales logits 100x before a
 # softmax that no longer matters.
 GREEDY: dict[str, dict] = {
-    task: {**p, "temperature": 0.0, "top_p": 1.0, "top_k": 1, "presence_penalty": 0.0}
+    task: {**p, "temperature": 0.0, "top_p": 1.0, "top_k": 1, "min_p": 0.0,
+           "presence_penalty": 0.0}
     for task, p in PROFILES.items()
 }

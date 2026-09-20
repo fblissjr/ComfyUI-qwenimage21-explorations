@@ -22,8 +22,10 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parents[1] / "example_workflows"
 
-UNET = "qwen_image_2.1_int8_convrot.safetensors"
-CLIP = "qwen3vl_8b_int8_convrot.safetensors"
+# The Comfy-Org release filenames. The quantized variants are named
+# ..._int8_convrot.safetensors and drop in wherever these appear.
+UNET = "qwen_image_2.1_bf16.safetensors"
+CLIP = "qwen3vl_8b_bf16.safetensors"
 VAE = "qwen_image_2.1_vae_bf16.safetensors"
 HEYLOOK = "http://localhost:8080"
 

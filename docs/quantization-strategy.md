@@ -751,6 +751,16 @@ request, a heylook row and a ComfyUI row are not the same experiment:
 | `presence_penalty` | 0.0 | 1.5 for t2i, 0.0 for edit |
 | `max_tokens` | 4096 | 16256 (t2i), 24000 (edit) |
 
+*Dated note, 2026-09-20: re-read off the server's own model listing, its
+`max_tokens` default is now 16384 and `top_k` is still 0. The table's 4096 was
+right when written and is not now; the argument is unchanged, because a server
+default is still not the reference value. The same read found two knobs this
+table does not list -- `min_p` and `repetition_penalty` -- and upstream's
+`Profile` does set `min_p`, so `profiles.py` now carries and sends it. That
+read also caught the t2i cap in `profiles.py` sitting at 24000 against
+upstream's 16256; `tests/test_profiles_match_upstream.py` is the guard that
+was missing.*
+
 The `max_tokens` gap is the dangerous one: 4096 will truncate a long thinking
 trace mid-stream, and a truncated trace produces unparseable JSON that looks
 exactly like a quantization regression. Both backends must send explicit

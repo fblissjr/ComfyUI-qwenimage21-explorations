@@ -32,7 +32,7 @@
         "Node name for S&R": "UNETLoader"
       },
       "widgets_values": [
-        "qwen_image_2.1_int8_convrot.safetensors",
+        "qwen_image_2.1_bf16.safetensors",
         "default"
       ]
     },
@@ -103,7 +103,7 @@
         "Node name for S&R": "CLIPLoader"
       },
       "widgets_values": [
-        "qwen3vl_8b_int8_convrot.safetensors",
+        "qwen3vl_8b_bf16.safetensors",
         "qwen_image",
         "default"
       ]

@@ -100,6 +100,7 @@ def generate(
     temperature: float,
     top_p: float,
     top_k: int,
+    min_p: float,
     presence_penalty: float,
     max_tokens: int,
     thinking: bool | None = None,
@@ -119,6 +120,7 @@ def generate(
         "temperature": temperature,
         "top_p": top_p,
         "top_k": top_k,
+        "min_p": min_p,
         "presence_penalty": presence_penalty,
         "messages": [{"role": "user", "content": content}],
     }

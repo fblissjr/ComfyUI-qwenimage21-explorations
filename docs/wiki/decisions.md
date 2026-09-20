@@ -43,6 +43,17 @@ date heading is accurate, not an artifact of a young page.
   unknown (whether the artifact repacks cleanly into the kernel's expected
   layout). In [`next_steps.md`](next_steps.md).
 
+- **`profiles.py` had drifted from the reference it claims to mirror, and
+  nothing would have caught it.** Its t2i cap read 24000 against upstream's
+  16256 -- and against this repo's own
+  [`../quantization-strategy.md`](../quantization-strategy.md) section 17,
+  which had it right. Upstream also sets `min_p`, which we neither carried nor
+  sent. Both fixed, and `tests/test_profiles_match_upstream.py` now reads
+  `pe_core.py` with `ast` and compares every value; it fails on the exact drift
+  when reintroduced. [`stages.md`](stages.md) recorded this stage's guard as
+  **nothing**, which is how the gap was found rather than discovered by a bad
+  render.
+
 - **Two nodes built: the expander as one node, and the encoder opened up**
   (the owner, choosing both shapes). `QwenImage21PEExpand` folds system-prompt
   resolution, the heylook request, parsing and grading into a single
