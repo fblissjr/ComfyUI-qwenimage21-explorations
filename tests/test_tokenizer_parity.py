@@ -70,3 +70,39 @@ def test_vocab_and_merges_are_identical(tokenizers):
     assert len(cv) == len(ck["vocab"])
     norm = lambda x: tuple(x) if isinstance(x, list) else tuple(x.split(" ", 1))
     assert [norm(x) for x in ck["merges"]] == [norm(x) for x in cm]
+
+
+# --- conditioning encoder (Qwen3-VL) -------------------------------------
+# Checked separately because it matters more: the encoder turns text into
+# conditioning, and the edit model's language rule is about rendering text into
+# images. It is genuinely a Qwen2-family tokenizer -- declares
+# `tokenizer_class: Qwen2Tokenizer` and no custom regex -- so ComfyUI's Qwen2
+# default is correct for it, and nothing here is expected to xfail.
+
+ENC = Path(os.environ["QI21_PROCESSOR"]) if os.environ.get("QI21_PROCESSOR") else None
+
+
+@pytest.fixture(scope="module")
+def encoder_tokenizers():
+    if ENC is None or not (ENC / "tokenizer.json").is_file():
+        pytest.skip("set QI21_PROCESSOR to the pipeline's processor/ directory")
+    q3 = pytest.importorskip("comfy.text_encoders.qwen3vl", reason="needs ComfyUI on sys.path")
+    from tokenizers import Tokenizer
+    t = q3.Qwen3VLTokenizer()
+    inner = next(v for v in t.__dict__.values() if hasattr(v, "tokenizer"))
+    return Tokenizer.from_file(str(ENC / "tokenizer.json")), inner.tokenizer
+
+
+@pytest.mark.parametrize("text", [
+    "A vertical cinematic rainy street scene with a corgi",
+    "把标题改成夏日特惠",
+    "タイトルを日本語で追加",
+    "제목을 한국어로",
+    "เพิ่มชื่อเรื่องภาษาไทย",
+    "शीर्षक हिंदी में जोड़ें",
+    "أضف عنوانًا باللغة العربية",
+    'a sign reading "Music is my Raincoat"',
+])
+def test_encoder_tokenization_matches_reference(encoder_tokenizers, text):
+    ref, comfy_tok = encoder_tokenizers
+    assert _enc(ref, text) == _enc(comfy_tok, text)

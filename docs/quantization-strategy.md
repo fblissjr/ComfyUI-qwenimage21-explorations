@@ -1606,9 +1606,38 @@ Thai, where the rendered output must be Thai.
 Unaffected on the heylook path, which applies the checkpoint's own tokenizer
 server-side.
 
+### The conditioning encoder is NOT affected
+
+Checked the same way, because it matters more: the encoder is what turns text
+into conditioning, and the edit model's language rule is entirely about painting
+text *into* pictures.
+
+Qwen-Image 2.1's encoder is Qwen3-VL 8B, and it is genuinely a Qwen2-family
+tokenizer -- its own `tokenizer_config.json` declares
+`tokenizer_class: Qwen2Tokenizer` and **no** `pretokenize_regex`, so Qwen2's
+default is the correct one for it. ComfyUI loads it through
+`ComfyUI/comfy/text_encoders/qwen3vl.py:149-150` (`qwen25_tokenizer`,
+`Qwen2Tokenizer`), which is right.
+
+Measured against the pipeline's own `processor/tokenizer.json`: base vocab
+151643 vs 151643, merge rules identical and identically ordered, and **every
+script matches** -- english, chinese, japanese, korean, thai, hindi, arabic,
+cyrillic, emoji, quoted text. Zero divergences.
+
+So the split is:
+
+| path | tokenizer family | declares custom regex | ComfyUI correct? |
+|---|---|---|---|
+| PE expanders (Qwen3.5) | qwen3_5, 248044 base | yes, `[\p{L}\p{M}]+` | **no** -- ignores it |
+| conditioning encoder (Qwen3-VL) | Qwen2, 151643 base | no | yes |
+
+The bug is specific to models that declare their own pre-tokenizer regex, which
+Qwen3.5 does and Qwen3-VL does not. The conditioning path -- the one that
+actually reaches the image -- is sound.
+
 ### The fix
 
-Not a tokenizer bundle -- the vocab is already correct. ComfyUI needs the
-qwen3_5 pre-tokenizer regex rather than Qwen2's. Worth reporting upstream; it
-affects every qwen35 model on any mark-heavy script (Thai, Devanagari, Lao,
-Khmer and similar), not just these two checkpoints.
+Not a tokenizer bundle -- the vocab is already correct. ComfyUI needs to honour
+the qwen3_5 pre-tokenizer regex rather than falling back to Qwen2's. Worth
+reporting upstream; it affects every qwen35 model on any mark-heavy script
+(Thai, Devanagari, Lao, Khmer and similar), not just these two checkpoints.
