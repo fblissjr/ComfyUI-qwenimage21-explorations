@@ -1466,3 +1466,83 @@ surprise in this pipeline. Hence `vision.py`, added before it bites.
   model -- their guidance is to describe subjects semantically. Maps directly
   onto how `<imageN>` blocks should be treated, and is consistent with the 2.1
   system prompt requiring roles to be *stated* rather than merely numbered.
+
+## 28. The predecessor's worst bug, and why it cannot bite us
+
+Two of three mining passes independently ranked the same item first. Full
+reports: `docs/bridge-prompting-findings.md`, `docs/bridge-dead-ends.md`.
+
+### The double-wrapped chat template
+
+For at least eight releases the predecessor's encoders built a full
+`<|im_start|>...` string and the framework tokenizer then wrapped it a **second
+time**. Nothing errored. The conditioning was silently nested one level deeper
+than intended and read as a merely mediocre prompt. It was found only once a
+formatted-prompt output was added -- in the same release that fixed it. Their
+fix was to pass an identity template to bypass automatic wrapping.
+
+**Our defence and its exact fragility.** ComfyUI's
+`Qwen35ImageTokenizer.tokenize_with_weights` takes its `skip_template` branch on
+`text.startswith('<|im_start|>')`. That is a string test. A stray leading
+newline, a BOM, or a well-meaning `.strip()`-and-pad would silently re-enable
+wrapping. `tests/test_prompt_structure.py` pins the properties that check
+depends on, and asserts on the final string rather than the flags that produced
+it -- which is the lesson, stated by both passes.
+
+`QwenImage21PEPrompt` already outputs the rendered prompt as a STRING. One pass
+called a formatted-prompt output "the cheapest high-value instrument you can
+build". We have it by construction; worth not removing.
+
+### The think-tag subwording trap -- checked, we are clear
+
+The predecessor measured that its bundled tokenizer lacked `<think>`, so the tag
+became the subwords `['<th','ink','>']`. Every "thinking" experiment in that
+repo therefore tested text *shaped like* a think block. Our generation prompt
+ends on an open `<think>`, so a subworded tag would put the model somewhere it
+was never trained.
+
+Verified against ComfyUI's bundled qwen35 tokenizer -- all special tokens
+resolve to single ids matching the checkpoint:
+
+    <|im_start|> 248045   <|im_end|> 248046   <think> 248068   </think> 248069
+    <|vision_start|> 248053   <|vision_end|> 248054   <|image_pad|> 248056
+
+and our rendered prompt's tail tokenizes as
+`[198, 248045, 74455, 198, 248068, 198]` = `\n<|im_start|>assistant\n<think>\n`.
+Note `vocab.json` alone is misleading: it holds 248044 base entries and none of
+the special tokens, which are added separately. Check by tokenizing, not by
+reading the vocab file.
+
+### Confirmed independently: the experimental record does not exist
+
+All three passes reached this. The repo contains a statistically literate design
+-- pre-registered outcomes for both directions, power analysis, conclusion
+criteria, an in-ComfyUI analyzer node, and a nine-part A/B protocol -- and **no
+recorded results anywhere**. Every numeric table sits under "Expected Results"
+inside if-it-works / if-it-doesn't hypothesis blocks. One pass notes results may
+have lived in an `internal/` directory that is absent from the checkout.
+
+So: do not cite a number from those files as measured. The **design** is the
+reusable part, and it is probably worth more to us than any code port -- the
+methodology doc even pre-commits to removing the template system if the result
+came out negative.
+
+### Other traps worth carrying
+
+- **Reference implementations diverge silently.** diffusers and DiffSynth filter
+  padding by attention mask; stock ComfyUI does not. A 512-token limit the
+  references truncate at is not enforced by ComfyUI. If we ever diff against a
+  reference, these are where the difference comes from.
+- **Structured LLM output can render as literal pixels.** JSON key quotes
+  appeared as visible text in generated images. Directly relevant: we pipe an
+  LLM's JSON into conditioning, and `rewritten_prompt` must be extracted, never
+  passed through whole.
+- **Do not try to reuse a loaded encoder as a generative LM.** They tried;
+  ComfyUI's implementation is encoder-only with no `lm_head`, and its vision MLP
+  is SwiGLU where HF is fc1/fc2 GELU, so the weights are not directly
+  transferable. Independently consistent with our own finding that the PE models
+  and the conditioning encoder share no architecture, vocabulary or tokenizer.
+- **They went around ComfyUI's native support twice** -- a wrapper stack and a
+  custom DiT -- and returned to native both times. The wrapper stack was
+  "complete but never validated with actual models", then archived for VRAM
+  leaks.
