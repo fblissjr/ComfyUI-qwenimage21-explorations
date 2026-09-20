@@ -34,6 +34,11 @@ research that shaped it.
   and ComfyUI core each run 2.1 for text-to-image and for edit: the conditioning
   contract they agree on, the three bookkeeping strategies they use for one
   fusion, and the expander stage none of them runs. The wiki's one owner page.
+- `docs/wiki/sizing.md` and `scripts/refview_bounds.py` — reference image
+  sizing: why 2.1 couples the encoder's and the VAE's view of a reference when
+  H3 did not, the five postures toward the processor's second resize, and the
+  bounds ComfyUI applies against the ones the checkpoint declares. The script
+  prints where the two views part company; no GPU, no torch.
 - `docs/quantization-strategy.md` and two research reports.
 - 24 tests.
 

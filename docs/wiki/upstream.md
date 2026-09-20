@@ -83,10 +83,10 @@ mechanism for everyone and will do it quietly.
 
 | question | what they do |
 |---|---|
-| resize | **one resize feeds both the vision tower and the VAE**, onto a 32-pixel grid, sized from the target area and the image's own aspect. Not two paths, not two resolutions |
+| resize | **one resize feeds both the vision tower and the VAE**, onto a 32-pixel grid, sized from the target area and the image's own aspect. Not two paths, not two resolutions. **ComfyUI does this one shared resize too, and then runs a second pass on the encoder branch alone** — see [`sizing.md`](sizing.md), which owns that divergence |
 | why it must be one | each vision-language image slot stands for a 2x2 group of latent tokens (`coderef/diffusers/src/diffusers/models/transformers/transformer_qwenimage21.py::_IMG_TOKENS_PER_SLOT`), so the encoder's slot count and the VAE's latent grid are two views of one number. diffusers **raises** when they disagree, in `build_token_metadata` |
-| the hazard this creates | letting the processor resize again after your own resize can change the slot count at small sizes. LightX2V passes `do_resize=False` for exactly this reason and says so in place |
-| transparency | the image is taken as RGBA. The alpha is composited over white **for the vision tower only**; the VAE keeps all four channels. Four of the five do this explicitly — the exception is ComfyUI core, which does not own image loading |
+| the hazard this creates | letting the processor resize again after your own resize can change the slot count. The five take **four different postures** toward it, and that is [`sizing.md`](sizing.md)'s subject |
+| transparency | the image is taken as RGBA. The alpha is composited over white **for the vision tower only**; the VAE keeps all four channels. **All five do this**, ComfyUI core in `TextEncodeQwenImage21` itself *(corrected 2026-09-20: this row previously said ComfyUI was the exception, which was wrong — the node does it inline and says so in a comment)* |
 | condition latents | VAE-encoded, normalized by per-channel mean and std, packed, and concatenated into **one joint sequence** with the target. Not a side channel |
 | block structure | block-causal: each image block is internally bidirectional, later blocks and the target attend to earlier ones. **Block boundaries come from the shape list, not from runs in the image mask** — two adjacent condition images form one run and must stay two blocks, or they would attend to each other bidirectionally |
 | static prefix | text and condition-image keys and values do not change across steps, so the first step prefills them and later steps recompute only the target's tokens. diffusers and sglang both carry a cache for this; in ComfyUI it is a node |

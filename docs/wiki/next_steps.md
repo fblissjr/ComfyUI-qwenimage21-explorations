@@ -65,6 +65,13 @@ the line starts from the right place rather than from the top.
   that; it says the design question has a worked answer to read before anyone
   invents one.
 
+- **The reference-view question has a rig in the sister project and no score.**
+  H3's `bench/refview2_arms.json` arms exactly the coarse-versus-fine encoder
+  view comparison, and both that repo's wiki and its references document record
+  it as unmeasured. [`sizing.md`](sizing.md) section 5 says what is and is not
+  known without a render. Nothing here needs it yet; it is the prior art to
+  reach for if a sizing question ever becomes worth settling.
+
 - **A prediction is already written down and is cheap to test.**
   [`../convrot-research.md`](../convrot-research.md), "Things to verify before
   relying on them", item 1 states in advance what every layer's group size
