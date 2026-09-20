@@ -1340,7 +1340,7 @@ conversion damage. A candidate scoring 6/7 has not regressed. Any acceptance
 threshold set against an assumed-perfect reference would have been wrong from
 the first run.
 
-### Instrument limit 1: heylook reports `input_tokens: 1` for image requests
+### Instrument limit 1: heylook reported `input_tokens: 1` for image requests — FIXED upstream
 
 Isolated by a two-case probe:
 
@@ -1353,12 +1353,25 @@ So it is **image-specific, not model-specific** -- any request carrying an image
 loses input-token accounting. Both PE models report correctly on text-only
 requests.
 
-This costs us the ability to verify prompt construction and input-side
-truncation on every edit row, and it matters for calibration planning, where
-image token cost is roughly pixels/1024 and a large photo can outweigh the
-system prompt. Mitigation: predict input tokens client-side from the
-checkpoint's tokenizer plus the pixel formula, and compare where the server
-does report. Worth reporting upstream as a server-side accounting bug.
+**Fixed upstream 2026-09-20.** Cause was one line: the provider passed a
+one-token continuation seed as `prompt_tokens` (the vision path prefills the
+full expanded `input_ids` in an earlier forward, so Phase 2 only needs a seed),
+and mlx-lm stamps `prompt_tokens=prompt.size` on every response — so the seed's
+1 reached the wire. `prompt_tps` was wrong the same way. Every chunk is now
+re-stamped, because the telemetry absorber keeps the last truthy value and a
+single corrected chunk would have been overwritten.
+
+Verified against derivable arithmetic rather than plausibility: at patch_size 16
+and merge_size 2 a 448px image must contribute (448/16)^2/4 = 196 positions and
+an 896px one 784; measured deltas against the same prompt with no image were
+exactly 196 and 784. The regression guard added upstream is self-calibrating
+(same prompt +/- image, assert the image arm is higher), which discriminates
+where a `> 1` threshold would not — under the bug the image arm reported 1
+against 2449, i.e. *lower* than the text-only arm.
+
+We keep client-side prediction anyway (`src/qwenimage21_explorations/vision.py`):
+a server that reports a number is not the same as a number we can check, and the
+predecessor repo's tooling shows how easily this quantity goes unmeasured.
 
 ### Instrument limit 2 (avoided): the default token cap would have truncated
 
@@ -1374,3 +1387,82 @@ Output length varies more than 4x across rows (1480 to 9130 tokens) and edit
 rows with images run minutes each on this backend. A full stratified corpus
 across the eight edit modes will not be a quick loop; budget accordingly, and
 prefer the greedy configuration for comparison runs so two runs of one arm agree.
+
+## 26. The dual-source stop-token trap lands safely on both paths
+
+These checkpoints declare their EOS in two places that disagree:
+
+| source | value | token |
+|---|---|---|
+| `config.json` `text_config.eos_token_id` | 248044 | `<\|endoftext\|>` |
+| `generation_config.json` `eos_token_id` | 248044 | `<\|endoftext\|>` |
+| `tokenizer_config.json` `eos_token` | -- | `<\|im_end\|>` (248046) |
+
+The config files point at what the tokenizer calls the **pad** token. The
+template's actual turn terminator is `<|im_end|>`. A generator trusting
+`eos_token_id` would never stop early and would run to its token cap on every
+request.
+
+Both our backends land correctly, for different reasons, and it is worth knowing
+which because the reasons have different failure modes:
+
+- **heylook** resolves the stop set to `{248046}` from the tokenizer — the token
+  the template really emits. Correct by construction.
+- **ComfyUI** hardcodes `stop_tokens = [248044, 248046]`
+  (`ComfyUI/comfy/text_encoders/qwen35.py:85`), so it stops on either. It never
+  reads the config, so the disagreement cannot reach it. Belt-and-braces that
+  happens to be safe here; note it also means a stray pad token mid-generation
+  would stop it early.
+
+Relevant token ids, verified from `tokenizer.json`: `<|endoftext|>` 248044,
+`<|im_start|>` 248045, `<|im_end|>` 248046, `<think>` 248068, `</think>` 248069.
+
+## 27. Two warnings from the predecessor repo's encoder work
+
+Full report: `docs/bridge-encoder-findings.md`.
+
+### Never hardcode a token boundary against an editable prompt
+
+The predecessor coupled a hardcoded drop index (34 for t2i, 64 for edit) to a
+**user-editable** system prompt, applying it whenever the prompt was merely
+non-empty, with nothing re-deriving the boundary from the actual tokenized
+prefix. Its own shipped templates demonstrate the divergence: a long system
+prompt and a one-sentence one both declare the same mode and both get index 64,
+so the short one's slice eats the head of the user turn. Silently.
+
+Qwen-Image 2.1 designs this hazard out -- the template is fixed and the system
+turn is removed structurally. **But our `templates/` directory exists precisely
+to allow system-prompt variants.** If anything downstream ever slices by token
+index, that index must be measured from the rendered prefix, never a constant.
+
+### The quantity that varies is the one nobody measured
+
+Both of the predecessor's token debuggers counted literal `<|image_pad|>`
+substrings, so their "vision token count" was 1 per image regardless of
+resolution. Nothing in that repo computed image-pad expansion -- no grid
+arithmetic, no merge-size handling. Their token counts could not diverge from
+expectation because the varying quantity was never in the measurement.
+
+With up to 16 reference images in 2.1, sequence length is the most likely
+surprise in this pipeline. Hence `vision.py`, added before it bites.
+
+### Also worth knowing
+
+- **Their experimental record does not exist.** `experiments/EXPERIMENT_METHODOLOGY.md`
+  reads like results but is a plan -- every number sits under "Expected
+  Results", split into "If Templates WORK" / "If Templates DON'T WORK"
+  hypothesis blocks. The declared output directory is absent and no results file
+  exists anywhere in the repo. **Do not quote a similarity or distance figure
+  from it as measured.**
+- **They never chose a conditioning tap.** No layer index and no norm toggle
+  anywhere in their Qwen-Image path -- they took whatever ComfyUI returned. So
+  2.1's un-normed choice has no counterpart finding there; it is a clean
+  "nothing to port" rather than a disagreement.
+- **Resolution, best-evidenced finding:** area-normalising large edit inputs
+  caused visible zoom-out, fixed by preserving input resolution with 32px
+  alignment. The mechanism still applies; the parameter it describes is gone.
+  The repo also states outright that it never tested whether more pixels help.
+- **Index addressing of reference images was removed as unsupported** by the
+  model -- their guidance is to describe subjects semantically. Maps directly
+  onto how `<imageN>` blocks should be treated, and is consistent with the 2.1
+  system prompt requiring roles to be *stated* rather than merely numbered.

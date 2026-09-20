@@ -14,7 +14,7 @@ from __future__ import annotations
 
 PROFILES: dict[str, dict] = {
     "t2i": dict(temperature=1.0, top_p=0.95, top_k=20,
-                presence_penalty=1.5, max_tokens=16256),
+                presence_penalty=1.5, max_tokens=24000),
     "edit": dict(temperature=1.0, top_p=0.95, top_k=20,
                  presence_penalty=0.0, max_tokens=24000),
 }

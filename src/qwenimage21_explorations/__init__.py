@@ -5,7 +5,7 @@ ComfyUI, so the same construction drives the ComfyUI nodes, the heylook/MLX
 backend, and the offline calibration and evaluation scripts under `scripts/`.
 """
 
-from . import answer, chat, profiles, templates
+from . import answer, chat, profiles, templates, vision
 from .profiles import GREEDY, PROFILES
 
-__all__ = ["answer", "chat", "profiles", "templates", "PROFILES", "GREEDY"]
+__all__ = ["answer", "chat", "profiles", "templates", "vision", "PROFILES", "GREEDY"]
