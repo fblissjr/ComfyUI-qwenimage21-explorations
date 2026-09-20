@@ -9,12 +9,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import math
+
+import comfy.model_management
+import comfy.utils
+import node_helpers
+import torch
 from comfy_api.latest import ComfyExtension, io
 from typing_extensions import override
 
 from .. import answer as answer_mod
 from .. import chat, templates
-from ..profiles import PROFILES
+from ..backends import heylook
+from ..profiles import GREEDY, PROFILES
 
 CATEGORY = "QwenImage21/PE"
 
@@ -155,12 +162,223 @@ class PEParse(io.ComfyNode):
         )
 
 
+# ---------------------------------------------------------------------------
+# The conditioning encoder, opened up
+
+
+CANONICAL_SYSTEM = chat.ENCODER_SYSTEM
+
+
+class EncodeStructured(io.ComfyNode):
+    """`TextEncodeQwenImage21` with the parts core fixes exposed. A research surface."""
+
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="QwenImage21EncodeStructured",
+            display_name="Qwen-Image 2.1 Encode (structured)",
+            category=CATEGORY,
+            description=(
+                "The stock encode node with its fixed parts opened up: the system turn, whether "
+                "vision tokens stay in the conditioning, and which reference sets the canvas. "
+                "The defaults reproduce the stock node. Changing the system prompt is "
+                "OFF-DISTRIBUTION -- every implementation of 2.1 sends the same one."
+            ),
+            inputs=[
+                io.Clip.Input("clip"),
+                io.String.Input("prompt", multiline=True, dynamic_prompts=True, default=""),
+                io.String.Input("negative_prompt", multiline=True, dynamic_prompts=True, default=""),
+                io.Vae.Input("vae", optional=True,
+                             tooltip="Without it the references condition through the text encoder alone and no reference latents are produced."),
+                io.Int.Input("resolution", default=1024, min=0, max=4096, step=32,
+                             tooltip="Target area for every reference, at multiples of 32, aspect preserved. 0 keeps each at its own size. Set it to round(sqrt(canvas_w*canvas_h)) to size references the way sglang does."),
+                io.String.Input("system", multiline=True, default=CANONICAL_SYSTEM, optional=True,
+                                tooltip="OFF-DISTRIBUTION if changed. Blank falls back to the canonical text, because an absent system turn breaks core's drop."),
+                io.Combo.Input("canvas_from", options=["first", "last"], default="first", optional=True,
+                               tooltip="Which reference sizes the emitted latent. Core takes the first; diffusers and LightX2V take the last."),
+                io.Boolean.Input("keep_vision", default=False, optional=True,
+                                 tooltip="Keep vision tokens in the conditioning. Core forces this on only when no VAE is wired; forcing it on WITH reference latents is off-distribution."),
+                io.Autogrow.Input(
+                    "images",
+                    template=io.Autogrow.TemplateNames(
+                        io.Image.Input("image"),
+                        names=[f"image_{i}" for i in range(1, 17)],
+                        min=0,
+                    ),
+                    optional=True,
+                    tooltip="Reference images, seen by the text encoder and spliced in as VAE latents.",
+                ),
+            ],
+            outputs=[
+                io.Conditioning.Output(display_name="positive"),
+                io.Conditioning.Output(display_name="negative"),
+                io.Latent.Output(display_name="latent"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, clip, prompt, negative_prompt, vae=None, resolution=1024,
+                system=CANONICAL_SYSTEM, canvas_from="first", keep_vision=False,
+                images: io.Autogrow.Type = None) -> io.NodeOutput:
+        ref_latents, images_vl, sizes = [], [], []
+        for image in _autogrow_images(images):
+            # One resize for both readers: a vision slot covers a fixed group of latents.
+            samples = image[:1].movedim(-1, 1)
+            if resolution > 0:
+                ratio = samples.shape[3] / samples.shape[2]
+                width = round(math.sqrt(resolution * resolution * ratio) / 32) * 32
+                height = round(math.sqrt(resolution * resolution / ratio) / 32) * 32
+            else:
+                width, height = round(samples.shape[3] / 32) * 32, round(samples.shape[2] / 32) * 32
+            width, height = max(32, width), max(32, height)
+            if (width, height) == (samples.shape[3], samples.shape[2]):
+                s = image[:1]
+            else:
+                s = comfy.utils.common_upscale(samples, width, height, "lanczos", "disabled").movedim(1, -1)
+            sizes.append((width, height))
+            rgb = s[:, :, :, :3]
+            if s.shape[-1] > 3:
+                rgb = rgb * s[:, :, :, 3:] + (1.0 - s[:, :, :, 3:])  # vision sees alpha over white, the vae keeps it
+            images_vl.append(rgb)
+            if vae is not None:
+                ref_latents.append(vae.encode(s))
+
+        keep = keep_vision or not ref_latents
+        out = []
+        for text in (prompt, negative_prompt):
+            tokens = clip.tokenize(chat.render_encoder_prompt(text, len(images_vl), system),
+                                   images=images_vl, keep_vision=keep)
+            cond = clip.encode_from_tokens_scheduled(tokens)
+            if ref_latents:
+                cond = node_helpers.conditioning_set_values(cond, {"reference_latents": ref_latents}, append=True)
+            out.append(cond)
+
+        latent_w, latent_h = sizes[-1 if canvas_from == "last" else 0] if sizes else (resolution or 1024,) * 2
+        latent = torch.zeros([1, 64, latent_h // 16, latent_w // 16],
+                             device=comfy.model_management.intermediate_device())
+        return io.NodeOutput(out[0], out[1], {"samples": latent})
+
+
 class QwenImage21Extension(ComfyExtension):
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         # Append only: saved graphs match widget values by index.
-        return [PESystemPrompt, PEPrompt, PEParse]
+        return [PESystemPrompt, PEPrompt, PEParse, PEExpand, EncodeStructured]
 
 
 async def comfy_entrypoint() -> QwenImage21Extension:
     return QwenImage21Extension()
+
+
+# ---------------------------------------------------------------------------
+# The expander, as one node
+
+
+#: heylook serves the two expanders under these names; see the smoke script.
+HEYLOOK_MODELS = {"t2i": "Qwen-Image-2.1-PE-T21-mlx", "edit": "Qwen-Image-2.1-PE-I21-mlx"}
+
+
+def _to_pil(image):
+    """One ComfyUI IMAGE frame to PIL, for the heylook request."""
+    from PIL import Image
+
+    arr = (image[0] if image.ndim == 4 else image).clamp(0, 1).mul(255).round().byte().cpu().numpy()
+    return Image.fromarray(arr[:, :, :3])
+
+
+def _autogrow_images(images):
+    """Autogrow dict to a list in socket order, first frame of each."""
+    images = images or {}
+    return [images[n] for n in sorted(images, key=lambda n: int(n.rsplit("_", 1)[-1])) if images[n] is not None]
+
+
+class PEExpand(io.ComfyNode):
+    """Expand a brief through a prompt expander served by heylook, and grade the answer."""
+
+    @classmethod
+    def define_schema(cls):
+        local = ["(none)"] + sorted(templates.local_templates(_TEMPLATES_DIR))
+        return io.Schema(
+            node_id="QwenImage21PEExpand",
+            display_name="Qwen-Image 2.1 PE (heylook)",
+            category=CATEGORY,
+            description=(
+                "Sends the brief to a Qwen-Image 2.1 prompt expander on a heylook server and "
+                "returns the rewritten prompt. Sampling is sent explicitly from the reference "
+                "profile on every request, because neither the server's defaults nor ComfyUI's "
+                "reproduce it, and the server's default token cap truncates a long thinking trace."
+            ),
+            inputs=[
+                io.Combo.Input("task", options=list(templates.TASKS), default="t2i",
+                               tooltip="t2i for text-to-image, edit when reference images are wired."),
+                io.String.Input("base_url", default="http://localhost:8080",
+                                tooltip="heylook server. The Anthropic-conformant /v1/messages route is used."),
+                io.String.Input("model", default="",
+                                tooltip="Blank derives the served name from task. Set it to override."),
+                io.Combo.Input("sampling", options=["reference", "greedy"], default="reference",
+                               tooltip="reference is the upstream profile. greedy makes two runs of one arm agree, which is what a comparison needs."),
+                io.String.Input("brief", multiline=True, dynamic_prompts=False, default="",
+                                tooltip="The user's request, in any language. Sent verbatim."),
+                io.String.Input("checkpoint_dir", default="", optional=True,
+                                tooltip="Directory holding the expander's system_prompt.txt. Preferred source."),
+                io.Combo.Input("local_template", options=local, default="(none)", optional=True,
+                               tooltip="A variant from templates/. Overrides the checkpoint copy."),
+                io.String.Input("system_override", multiline=True, default="", optional=True,
+                                tooltip="Raw system prompt. Wins over everything else."),
+                io.Boolean.Input("thinking", default=True, optional=True,
+                                 tooltip="On is the trained default. heylook takes this as a plain bool."),
+                io.Int.Input("timeout", default=900, min=30, max=7200, optional=True,
+                             tooltip="Seconds. An edit row with images can run minutes on this backend."),
+                io.Autogrow.Input(
+                    "images",
+                    template=io.Autogrow.TemplateNames(
+                        io.Image.Input("image"),
+                        names=[f"image_{i}" for i in range(1, 17)],
+                        min=0,
+                    ),
+                    optional=True,
+                    tooltip="Reference images for edit mode. Sent first in the user turn, in order.",
+                ),
+            ],
+            outputs=[
+                io.String.Output(display_name="rewritten_prompt"),
+                io.String.Output(display_name="wh_ratio"),
+                io.String.Output(display_name="ratio_follow"),
+                io.String.Output(display_name="thinking"),
+                io.Boolean.Output(display_name="contract_ok"),
+                io.String.Output(display_name="violations"),
+            ],
+        )
+
+    @classmethod
+    def execute(cls, task, base_url, model, sampling, brief, checkpoint_dir="", local_template="(none)",
+                system_override="", thinking=True, timeout=900,
+                images: io.Autogrow.Type = None) -> io.NodeOutput:
+        tpl = _TEMPLATES_DIR / f"{local_template}.md" if local_template not in ("", "(none)") else None
+        system = templates.resolve(
+            explicit_text=system_override,
+            template_path=tpl,
+            ckpt_dir=checkpoint_dir.strip() or None,
+        ).text
+
+        frames = _autogrow_images(images)
+        profile = (GREEDY if sampling == "greedy" else PROFILES)[task]
+        resp = heylook.generate(
+            base_url=base_url,
+            model=model.strip() or HEYLOOK_MODELS[task],
+            system=system,
+            brief=brief,
+            images=[_to_pil(f) for f in frames],
+            thinking=thinking,
+            timeout=timeout,
+            **profile,
+        )
+        graded = answer_mod.parse_and_grade(resp.as_inline(), task=task, n_images=len(frames))
+        violations = list(graded.violations)
+        if resp.truncated:
+            # Reads downstream as unparseable JSON, which looks like a model fault; name it.
+            violations.insert(0, "response:truncated")
+        return io.NodeOutput(
+            graded.rewritten_prompt, graded.wh_ratio, graded.ratio_follow, graded.thinking,
+            graded.contract_ok, ", ".join(violations),
+        )

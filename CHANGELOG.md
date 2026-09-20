@@ -22,6 +22,17 @@ research that shaped it.
     separate thinking block into ComfyUI's inline shape so one parser grades
     both.
 - Three ComfyUI nodes (V3 schema) wrapping those modules, adding nothing.
+- Two more nodes, and example graphs for both modes:
+  - `QwenImage21PEExpand` — the expander as one chat-shaped node: resolves the
+    system prompt, calls heylook with the reference sampling profile, parses and
+    grades the answer. Names a truncated response rather than letting it read
+    downstream as a model fault.
+  - `QwenImage21EncodeStructured` — the encode node with its fixed parts opened
+    up (system turn, `keep_vision`, which reference sets the canvas). Defaults
+    reproduce the stock node; changing the system prompt is off-distribution.
+  - `example_workflows/` plus `scripts/build_example_workflows.py --check`.
+  - `chat.render_encoder_prompt` assembles the encoder's chat string instead of
+    formatting a template, which breaks on a system prompt containing braces.
 - `scripts/config_census.py` — reads any quantized checkpoint with no GPU, no
   ComfyUI and no torch. Reports layers, configs and module roles with in/out
   features, and exits non-zero on `full_precision_matrix_mult`.

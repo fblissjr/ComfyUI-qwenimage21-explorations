@@ -39,10 +39,10 @@ same tensor. This is the part a reader can rely on.
 |---|---|---|
 | system prompt | one short fixed sentence, byte-identical across all five | `coderef/diffusers/src/diffusers/pipelines/qwenimage21/pipeline_qwenimage21.py`, `QwenImage21Pipeline.sys_prompt` |
 | template | system turn, user turn, then an **open** assistant turn the encoder never continues — the generation prompt's shape, read for hidden states rather than sampled | same file, `prompt_template_t2i` |
-| condition images | one `<imageN><|vision_start|><|image_pad|><|vision_end|>` block per image, **1-indexed, space-joined, ahead of the prompt text**. Order is the order the model reads them | same file, `prompt_template_ti2i` |
+| condition images | one `<imageN>` followed by the vision block (`<\|vision_start\|>`, `<\|image_pad\|>`, `<\|vision_end\|>`) per image, **1-indexed, space-joined, ahead of the prompt text**. Order is the order the model reads them | same file, `prompt_template_ti2i` |
 | empty prompt | replaced with a single space, because Qwen has no bos token and an empty string leaves the encoder nothing to read | diffusers and sglang both; `coderef/sglang/python/sglang/multimodal_gen/runtime/pipelines_core/stages/model_specific_stages/qwen_image21.py` |
 | padding | left, as trained | same |
-| the system turn is dropped from the hidden states | **always, and always derived** — never a constant. See below |
+| the system turn is dropped from the hidden states | **always, and always derived** — never a constant | the next section, which puts the mechanisms side by side |
 | guidance | off by default; 2.1 is meant to be sampled without it. Turning it on doubles the work per step | the `true_cfg_scale` default in the diffusers pipeline signature |
 
 ### The drop index is derived by every one of them

@@ -6,6 +6,16 @@ Tinkering and research hub for the Qwen Image ecosystem
 
 See [LLM wiki index](docs/wiki/index.md)
 
+## Example workflows
+
+`example_workflows/` has a text-to-image and an edit graph that expand the
+prompt through a heylook-served expander before encoding. Regenerate or verify
+them with:
+
+```
+python scripts/build_example_workflows.py [--check]
+```
+
 ## Tests
 
 ```

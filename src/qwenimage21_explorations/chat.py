@@ -113,3 +113,36 @@ def assistant_span(conv: Conversation, thinking_trace: str, answer: str) -> tupl
     prefix = render_generation_prompt(conv)
     full = render_training_row(conv, thinking_trace, answer)
     return len(prefix), len(full)
+
+
+# --- the conditioning encoder's chat string -------------------------------
+#
+# A different model and a different job from the expanders above: Qwen3-VL
+# read for hidden states, never sampled, so this string ends at the assistant
+# marker and opens no <think> block.
+
+#: What every implementation of 2.1 sends. Editing it is off-distribution.
+ENCODER_SYSTEM = "Comprehend and analyze the provided prompt."
+
+
+def render_encoder_prompt(prompt: str, n_images: int = 0, system: str = ENCODER_SYSTEM) -> str:
+    """Assemble the conditioning encoder's chat string.
+
+    ComfyUI builds a template and calls `str.format` on it, which breaks on a
+    system prompt containing braces. Starting the result with ``<|im_start|>``
+    takes the tokenizer's skip-template branch, so nothing is formatted.
+
+    The system turn is ALWAYS emitted, and a blank one falls back to the
+    canonical text. ComfyUI drops everything before the second
+    ``<|im_start|>``; with no system turn that marker is the assistant's and
+    almost the whole sequence is cut.
+
+    An empty prompt becomes a single space, as the reference implementations
+    do, because Qwen has no bos token.
+    """
+    refs = " ".join(f"<image{i + 1}>{VISION_BLOCK}" for i in range(n_images))
+    return (
+        f"{IM_START}system\n{system.strip() or ENCODER_SYSTEM}{IM_END}\n"
+        f"{IM_START}user\n{refs}{prompt or ' '}{IM_END}\n"
+        f"{IM_START}assistant\n"
+    )

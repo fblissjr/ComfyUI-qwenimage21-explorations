@@ -230,5 +230,11 @@ expansion is a wiring choice with sockets to spare.
 optional, so leaving it unwired does not fail — it selects the encoder-only
 conditioning mode, which is a deliberate path with no signal that you are on
 it. That is the only item here that produces a confidently wrong result from an
-ordinary mistake, and a warning in core would settle it more cheaply than a
-node would.
+ordinary mistake.
+
+**Decided 2026-09-20: a structured encode node was built anyway, as a research
+surface rather than as a fix.** `QwenImage21EncodeStructured` exposes the
+system turn, `keep_vision` and which reference sets the canvas, with defaults
+that reproduce the stock node. Editing the system prompt is off-distribution
+and the node says so in its own description — the point is to be able to A/B
+it, not to recommend it. [`decisions.md`](decisions.md).

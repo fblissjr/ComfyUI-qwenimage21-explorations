@@ -50,10 +50,12 @@ class Response:
         return f"<think>\n{self.thinking}\n</think>\n\n{self.text}" if self.thinking else self.text
 
 
-def encode_image(path: str | Path, max_pixels: int = DEFAULT_MAX_PIXELS) -> dict:
+def encode_image(source, max_pixels: int = DEFAULT_MAX_PIXELS) -> dict:
+    """`source` is a path or an already-open PIL image (what a ComfyUI node has)."""
     from PIL import Image
 
-    img = Image.open(path).convert("RGB")
+    img = source if hasattr(source, "convert") else Image.open(source)
+    img = img.convert("RGB")
     w, h = img.size
     if w * h > max_pixels:
         scale = (max_pixels / (w * h)) ** 0.5
@@ -94,15 +96,20 @@ def generate(
     model: str,
     system: str,
     brief: str,
-    images: list[str | Path] | None = None,
+    images: list | None = None,
     temperature: float,
     top_p: float,
     top_k: int,
     presence_penalty: float,
     max_tokens: int,
+    thinking: bool | None = None,
     timeout: int = 900,
 ) -> Response:
-    """One expansion. Images go FIRST in the user turn, in order."""
+    """One expansion. Images go FIRST in the user turn, in order.
+
+    `thinking` is heylook's own bool, not Anthropic's config object; left None
+    the server applies the model's default, which is on for both expanders.
+    """
     content: list[dict] = [encode_image(p) for p in (images or [])]
     content.append({"type": "text", "text": brief})
     body = {
@@ -115,6 +122,8 @@ def generate(
         "presence_penalty": presence_penalty,
         "messages": [{"role": "user", "content": content}],
     }
+    if thinking is not None:
+        body["thinking"] = thinking
     r = requests.post(f"{base_url.rstrip('/')}/v1/messages", json=body, timeout=timeout)
     r.raise_for_status()
     return normalise_response(r.json())
