@@ -231,9 +231,62 @@ def validate(doc: dict) -> list[str]:
     return errs
 
 
+SOCKETS = {"MODEL", "CLIP", "VAE", "IMAGE", "MASK", "LATENT", "CONDITIONING"}
+
+
+def check_against_server(doc: dict, base_url: str) -> list[str]:
+    """Validate node types, input names and widget counts against a live ComfyUI.
+
+    The structural pass above cannot see a schema change upstream; this can.
+    A node type missing from `/object_info` is frontend-only (MarkdownNote) and
+    is skipped rather than reported.
+    """
+    import json as _json
+    import urllib.request
+
+    with urllib.request.urlopen(f"{base_url.rstrip('/')}/object_info", timeout=60) as r:
+        oi = _json.load(r)
+
+    errs = []
+    for n in doc["nodes"]:
+        spec = oi.get(n["type"], {}).get("input")
+        if spec is None:
+            continue
+        widgets, allowed = [], set()
+        for section in ("required", "optional"):
+            for name, val in spec.get(section, {}).items():
+                allowed.add(name)
+                typ = val[0] if isinstance(val, (list, tuple)) and val else val
+                opts = val[1] if isinstance(val, (list, tuple)) and len(val) > 1 else {}
+                if typ == "COMFY_AUTOGROW_V3" or (isinstance(typ, str) and typ in SOCKETS):
+                    continue
+                widgets.append(name)
+                # Some inputs render a second widget beside themselves: a seed's
+                # control, and an image combo's upload button. The official
+                # graphs carry both, so the counts have to allow for them.
+                for flag, extra in (("control_after_generate", "control"), ("image_upload", "upload")):
+                    if isinstance(opts, dict) and opts.get(flag):
+                        widgets.append(f"{name}.{extra}")
+        if len(n["widgets_values"]) != len(widgets):
+            errs.append(f"{n['type']}: {len(n['widgets_values'])} widget values, "
+                        f"server implies {len(widgets)} -> {widgets}")
+        for i in n["inputs"]:
+            if i["name"].split(".")[0] not in allowed:
+                errs.append(f"{n['type']}: input {i['name']!r} is not in the server's schema")
+        outs = oi[n["type"]]["output"]
+        for k, o in enumerate(n["outputs"]):
+            if k >= len(outs):
+                errs.append(f"{n['type']}: output[{k}] beyond the server's {len(outs)}")
+            elif outs[k] != o["type"]:
+                errs.append(f"{n['type']}: output[{k}] is {o['type']}, server says {outs[k]}")
+    return errs
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="fail if the files on disk differ")
+    ap.add_argument("--server", metavar="URL",
+                    help="also validate against a running ComfyUI, e.g. http://127.0.0.1:8188")
     args = ap.parse_args()
 
     rc = 0
@@ -241,6 +294,8 @@ def main() -> int:
                        ("qwen_image_2.1_edit_heylook_pe.json", True)):
         doc = build(edit)
         errs = validate(doc)
+        if args.server:
+            errs += check_against_server(doc, args.server)
         for e in errs:
             print(f"{name}: {e}", file=sys.stderr)
         rc |= bool(errs)

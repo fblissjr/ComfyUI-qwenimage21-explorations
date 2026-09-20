@@ -30,7 +30,10 @@ research that shaped it.
   - `QwenImage21EncodeStructured` — the encode node with its fixed parts opened
     up (system turn, `keep_vision`, which reference sets the canvas). Defaults
     reproduce the stock node; changing the system prompt is off-distribution.
-  - `example_workflows/` plus `scripts/build_example_workflows.py --check`.
+  - `example_workflows/` plus `scripts/build_example_workflows.py`, which
+    regenerates them, `--check`s them against disk, and with `--server`
+    validates node types, input names and widget counts against a running
+    ComfyUI. Both graphs pass ComfyUI's own prompt validation.
   - `chat.render_encoder_prompt` assembles the encoder's chat string instead of
     formatting a template, which breaks on a system prompt containing braces.
 - `scripts/config_census.py` — reads any quantized checkpoint with no GPU, no
