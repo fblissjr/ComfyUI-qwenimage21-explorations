@@ -53,7 +53,7 @@ owns why there is no provider abstraction over them.
 
 | stage | our code | owner | guard | compare against |
 |---|---|---|---|---|
-| conditioning from the rewritten prompt | **not ours.** Core's `TextEncodeQwenImage21` | [`../bridge-encoder-findings.md`](../bridge-encoder-findings.md) for what the predecessor learned on the older stack, and how much of it transfers | `tests/test_tokenizer_parity.py` also covers the encoder's tokenizer against the pipeline's own, and found no divergence. **Nothing else** here touches this stage | `ComfyUI/comfy/text_encoders/qwen_image21.py` |
+| conditioning from the rewritten prompt | **not ours.** Core's `TextEncodeQwenImage21` | [`../quantization-strategy.md`](../quantization-strategy.md) section 29 for the encoder's own tokenizer, checked because this is the path that actually reaches the image; [`../bridge-encoder-findings.md`](../bridge-encoder-findings.md) for what the predecessor learned on the older stack, and how much of it transfers | `tests/test_tokenizer_parity.py` also covers the encoder's tokenizer against the pipeline's own, and found no divergence. **Nothing else** here touches this stage | `ComfyUI/comfy/text_encoders/qwen_image21.py` |
 | checkpoint census | `scripts/config_census.py` | its own docstring, which carries why the output has the columns it has | its exit code is the guard, and the scan is exhaustive by construction — the docstring says why sampling by payload length does not work | — |
 | end-to-end run | `scripts/smoke_heylook.py` | [`../quantization-strategy.md`](../quantization-strategy.md) section 25 | its exit code: it fails unless every completed row is contract-clean | upstream's example briefs, which it runs verbatim, typos and mixed languages preserved |
 
