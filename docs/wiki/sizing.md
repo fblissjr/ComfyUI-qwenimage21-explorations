@@ -89,6 +89,18 @@ So: a real transformers class pointed at a bundled vocabulary on one side, and
 an independent reimplementation carrying copied constants on the other. Neither
 reads the checkpoint.
 
+**For this encoder that costs nothing, and it was checked rather than assumed.**
+The bundled vocabulary carries the same added-token set as the checkpoint's
+processor, same entries and same ids, including every vision and turn marker;
+neither side declares a `pretokenize_regex`, so the Qwen2 default really is the
+right one here. Base vocabulary and merge rules were compared in
+[`../quantization-strategy.md`](../quantization-strategy.md) section 29 and are
+pinned by `tests/test_tokenizer_parity.py`. The one config value that differs is
+the declared context length, and it never binds: ComfyUI sets its own
+effectively unbounded length when it constructs the tokenizer, so nothing
+truncates at either number. **There is no encoder-side vocabulary gap** — the
+tokenizer problem is confined to the expanders.
+
 **This is the same class as [`../quantization-strategy.md`](../quantization-strategy.md)
 section 29** — ComfyUI substituting Qwen2-family defaults for what the
 checkpoint declares, now found in two subsystems: the tokenizer's
@@ -161,6 +173,20 @@ sets the canvas**:
 | LightX2V | a separate `resolution` config value | the **last** image's size |
 | ComfyUI core | a separate `resolution` widget | the node emits a latent at the **first** reference's size |
 
+**Mixed aspect ratios are a first-class case, not a tolerated one.** Each
+reference keeps its own geometry all the way through: core's DiT reads `h, w`
+per reference in `build_sequence` and lays out that reference's own grid, with
+a deliberate half-token adjustment where a reference's grid parity differs from
+the target's (`ComfyUI/comfy/ldm/qwen_image21/model.py`). Nothing forces
+references to a common size or a common aspect. Nothing needs building for this.
+
+**And the area decoupling is a widget value, not a missing feature.** ComfyUI's
+per-reference sizing is the same computation sglang applies, differing only in
+which area it is given. Set the `resolution` widget to the geometric mean of the
+canvas you will actually sample at and the two agree exactly:
+`scripts/refview_bounds.py --parity` checks that over a spread of canvases and
+reference shapes, including extreme ratios.
+
 Two consequences, neither of them a defect on its own:
 
 - **ComfyUI is the odd one out on which reference sets the canvas.** diffusers
@@ -192,3 +218,17 @@ inside the bounds core will apply, so the clamps never fire.
 **Not a node fix at all:** the tokenizer's pre-tokenizer
 ([`../quantization-strategy.md`](../quantization-strategy.md) section 29). It is
 decided where the tokenizer is constructed, and the fix belongs upstream.
+
+### Where that leaves it
+
+**Two of the four reachable items dissolve on inspection.** Canvas-coupled
+reference sizing is the `resolution` widget set to the canvas's geometric mean,
+checkable with `--parity` above. Mixed aspect ratios already work. Batch
+expansion is a wiring choice with sockets to spare.
+
+**One is left, and it is not really a sizing question.** The VAE input is
+optional, so leaving it unwired does not fail — it selects the encoder-only
+conditioning mode, which is a deliberate path with no signal that you are on
+it. That is the only item here that produces a confidently wrong result from an
+ordinary mistake, and a warning in core would settle it more cheaply than a
+node would.

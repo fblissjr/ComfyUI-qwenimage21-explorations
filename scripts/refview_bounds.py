@@ -62,6 +62,23 @@ def clamp(w: int, h: int, min_pixels: int, max_pixels: int) -> tuple[int, int]:
     return w_bar, h_bar
 
 
+# Reference sizing: sglang and DiffSynth-Studio size references to the OUTPUT
+# CANVAS's area; ComfyUI sizes them to its own `resolution` widget. The two are
+# the same computation with a different area, so setting the widget to the
+# canvas's geometric mean makes them agree. `--parity` checks that.
+def comfy_ref(resolution, w, h):
+    return node_size(resolution, w, h)
+
+
+def canvas_area_ref(area, w, h):
+    """sglang's per-reference sizing, from its qwen_image21 encoding stage."""
+    return (max(FACTOR, round(math.sqrt(area * w / h) / FACTOR) * FACTOR),
+            max(FACTOR, round(math.sqrt(area * h / w) / FACTOR) * FACTOR))
+
+
+CANVASES = [(1024, 1024), (1328, 1328), (1664, 928), (928, 1664), (1376, 768)]
+REFS = [(1920, 1080), (1080, 1920), (1024, 1024), (3000, 500), (640, 480), (512, 1536)]
+
 CASES = [
     ("node default", 1024, 1024, 1024),
     ("node default, 16:9", 1024, 1920, 1080),
@@ -77,7 +94,23 @@ CASES = [
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--all", action="store_true", help="print agreeing cases too")
+    ap.add_argument("--parity", action="store_true",
+                    help="check that resolution=sqrt(canvas area) reproduces sglang's sizing")
     args = ap.parse_args()
+
+    if args.parity:
+        bad = 0
+        for cw, ch in CANVASES:
+            res = round(math.sqrt(cw * ch))
+            for rw, rh in REFS:
+                if comfy_ref(res, rw, rh) != canvas_area_ref(cw * ch, rw, rh):
+                    bad += 1
+                    print(f"DIFFERS canvas {cw}x{ch} (resolution={res}) reference {rw}x{rh}")
+        total = len(CANVASES) * len(REFS)
+        print(f"{total - bad}/{total} identical when the resolution widget is set to "
+              f"round(sqrt(canvas_w * canvas_h)).")
+        print("So canvas-coupled reference sizing needs a widget value, not a node.")
+        return 1 if bad else 0
 
     print(f"{'case':<48}{'res':>6}{'node':>12}{'encoder':>12}{'vs checkpoint':>16}")
     split = 0
