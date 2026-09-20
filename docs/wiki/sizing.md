@@ -68,6 +68,27 @@ The homes, so neither is copied into prose here:
 | what ComfyUI applies | `ComfyUI/comfy/text_encoders/qwen_vl.py::process_qwen2vl_images` default arguments, and `scripts/refview_bounds.py::COMFY_MIN_PIXELS` / `COMFY_MAX_PIXELS` |
 | what the checkpoint declares | `<models>/Qwen-Image-2.1/processor/preprocessor_config.json`, its `size` dict; mirrored at `scripts/refview_bounds.py::CKPT_MIN_PIXELS` / `CKPT_MAX_PIXELS` |
 
+### Transformers or hardcoded? Both, and differently per subsystem
+
+Worth separating, because the two halves of "ComfyUI ignores the checkpoint's
+config" fail for different reasons:
+
+- **Text.** ComfyUI *does* use transformers — it imports `Qwen2Tokenizer` and
+  calls `from_pretrained` on **its own bundled vocabulary directory**
+  (`ComfyUI/comfy/text_encoders/qwen25_tokenizer/` for this encoder), never on
+  the checkpoint. So the class is real and the vocabulary is a copy. The
+  tokenizer class is chosen in ComfyUI's code, so whatever class or
+  pre-tokenizer the checkpoint declares cannot reach it — which is the
+  mechanism behind [`../quantization-strategy.md`](../quantization-strategy.md)
+  section 29.
+- **Images.** No transformers at all. `process_qwen2vl_images` is ComfyUI's own
+  reimplementation in torch, and its bounds are constants in that function's
+  signature that happen to equal the transformers library defaults.
+
+So: a real transformers class pointed at a bundled vocabulary on one side, and
+an independent reimplementation carrying copied constants on the other. Neither
+reads the checkpoint.
+
 **This is the same class as [`../quantization-strategy.md`](../quantization-strategy.md)
 section 29** — ComfyUI substituting Qwen2-family defaults for what the
 checkpoint declares, now found in two subsystems: the tokenizer's
@@ -119,3 +140,55 @@ neither. What can be said without a render:
 If this becomes worth settling, the H3 ablation is the closest prior art for
 how to arm it, and [`../quantization-strategy.md`](../quantization-strategy.md)
 section 13b is this repo's rule about deciding the measurement before building.
+
+
+## 6. Many references: what each implementation targets
+
+Every implementation sizes **each reference independently**, preserving that
+image's own aspect, at a shared target *area*, and **upscales a small reference
+to reach it**. ComfyUI does this too. There is no batching-forces-one-size
+behaviour here and no never-upscale clamp — the thing that had to be fixed in
+H3 is not present in this path.
+
+What differs is **which number the area comes from**, and **which reference
+sets the canvas**:
+
+| implementation | reference area is | canvas, when not given explicitly |
+|---|---|---|
+| sglang | **the output canvas's area** | required from the caller |
+| DiffSynth-Studio | **the output canvas's area** | required from the caller |
+| diffusers | a separate `output_resolution` parameter | derived from the **last** image's aspect |
+| LightX2V | a separate `resolution` config value | the **last** image's size |
+| ComfyUI core | a separate `resolution` widget | the node emits a latent at the **first** reference's size |
+
+Two consequences, neither of them a defect on its own:
+
+- **ComfyUI is the odd one out on which reference sets the canvas.** diffusers
+  and LightX2V take the last; ComfyUI takes the first. With references of
+  different aspect ratios, the same inputs give a differently shaped output.
+- **In ComfyUI the reference area is decoupled from the canvas.** At the node's
+  defaults they agree, because the node emits a latent sized from a reference
+  it sized itself. Wire a differently sized latent instead and the references
+  stay at the widget's area, where sglang and DiffSynth would have followed the
+  canvas. The coupling is a convention of the default wiring, not a contract.
+
+## 7. What a custom node could and could not change
+
+Recorded because the question comes up, not as a recommendation — this repo's
+standing rule is to adapt to existing nodes rather than add them.
+
+**Reachable from a node**, because they are decisions the node makes before
+core sees anything: which reference sets the canvas; sizing references to a
+supplied canvas area instead of a widget; expanding a batched input into
+several references instead of taking its first frame; and requiring a VAE
+rather than silently falling through to encoder-only conditioning.
+
+**Pre-emptable but not suppressible:** the second resize. `process_qwen2vl_images`
+is called inside core's encoder path with no arguments a caller can set
+(`ComfyUI/comfy/text_encoders/qwen3vl.py`), so a node cannot turn it off the way
+LightX2V does. It *can* do what DiffSynth-Studio does — keep its own sizing
+inside the bounds core will apply, so the clamps never fire.
+
+**Not a node fix at all:** the tokenizer's pre-tokenizer
+([`../quantization-strategy.md`](../quantization-strategy.md) section 29). It is
+decided where the tokenizer is constructed, and the fix belongs upstream.
