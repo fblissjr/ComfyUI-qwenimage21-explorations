@@ -70,3 +70,17 @@ def test_the_pixel_cap_is_opt_out():
 
     assert sent(0) == (1376, 768)
     assert sent(heylook.DEFAULT_MAX_PIXELS) != (1376, 768)
+
+
+def test_truncated_reads_the_sentinel_the_api_declares():
+    """Zero truncated rows is only evidence if this reads the right value.
+
+    The live response schema declares stop_reason as one of end_turn,
+    max_tokens, stop_sequence. If the server renamed the middle one, the
+    harness would report a truncated trace as a clean answer and a quantization
+    comparison would inherit the mistake.
+    """
+    declared = ("end_turn", "max_tokens", "stop_sequence")
+    got = {r: normalise_response(payload([{"type": "text", "text": "{}"}], stop=r)).truncated
+           for r in declared}
+    assert got == {"end_turn": False, "max_tokens": True, "stop_sequence": False}

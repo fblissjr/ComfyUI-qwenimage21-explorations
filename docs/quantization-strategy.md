@@ -761,20 +761,35 @@ read also caught the t2i cap in `profiles.py` sitting at 24000 against
 upstream's 16256; `tests/test_profiles_match_upstream.py` is the guard that
 was missing.*
 
-*Correction, 2026-09-20, from the heylook side and NOT verified here (that
-server was down when this was written).* The `effect` tags above say when a
-change takes hold, not that a field does anything for a given model family. For
-these `qwen3_5` checkpoints specifically, the claim is that `max_kv_size` and
-`cache_type` are **inert** -- `make_cache` returns before either is read, with
-no error and no log -- and that `context_length` allocates nothing on MLX,
-serving only as an over-length refusal. **An inference drawn here earlier, that
-those knobs bound the KV allocation and would show up in load time, is
-withdrawn**; timing a reload against any of them would have measured nothing.
-Two further claims worth checking when that server is reachable: that
-`max_tokens` is capped server-side at a value below the edit profile's, which
-would silently clamp what we ask for (our `Response.truncated` is what would
-catch it), and that `/v1/admin/model-options` now tags each field with an
-`engines` list, which is finer than the provider key this section used.
+*Correction, 2026-09-20, relayed from the heylook side and then CHECKED
+against that server at 2.0.49.* The `effect` tags above say when a change takes
+hold, not that a field does anything for a given model family.
+
+- **The KV knobs are inert for these checkpoints, and the server says so
+  itself.** `/v1/admin/model-options` describes `cache_type` as "IGNORED
+  ENTIRELY for architectures that define their own make_cache -- qwen3_5,
+  gemma3, the mamba family and others", with no error and no warning, and
+  `max_kv_size` as "NOT A PREALLOCATION and not a load-time lever" whose cache
+  "is constructed per generation, not at load, so this cannot speed up loading
+  or time-to-first-token". **An inference drawn here earlier, that those knobs
+  bound the allocation and would show up in load time, is withdrawn on both
+  counts**: wrong about preallocation, and inert on this architecture anyway.
+- **There is no server-side `max_tokens` cap.** The live request schema bounds
+  it below and not above, and the options endpoint calls the per-model value a
+  default that "A request field still wins over this." So 16384 is what a
+  client sending nothing gets, not a ceiling, and the edit profile's larger
+  value is honoured. **The claim that long edit rewrites are being silently
+  truncated is withdrawn.**
+- **The `engines` tag is real and is the right granularity.** Each field
+  carries `description`, `effect` and `engines`; `mlx` is two engines, so
+  `vision_tokens` is `mlx-vlm` only while `max_queue_depth` spans all three.
+  Read `engines`, not the provider key this section used before.
+
+*And the challenge that came back with it, answered:* zero truncated rows is
+only evidence if `truncated` reads the right sentinel. It does -- the response
+schema declares `stop_reason` as one of `end_turn`, `max_tokens`,
+`stop_sequence`, and `Response.truncated` tests for the second.
+`tests/test_heylook.py` pins that against the declared set.
 
 *Also relayed, and an operator's call rather than ours:* `max_loaded_models`
 defaults to 1 while each PE checkpoint is large, so a pipeline alternating t2i

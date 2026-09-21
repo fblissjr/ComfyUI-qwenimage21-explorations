@@ -51,13 +51,26 @@ date heading is accurate, not an artifact of a young page.
   so parity is kept and the round trip is gone. Prompted by the heylook side;
   the round trip was safe in practice, and a body containing `</think>` is the
   case it could not have promised — now a test.
-- **An inference about heylook's KV knobs is withdrawn.** Told the owner that
+- **The relayed heylook claims were checked against that server, and they do
+  not all hold.** There is **no server-side `max_tokens` cap** — the schema
+  bounds it below only, and the options endpoint says a request field wins over
+  the per-model default — so nothing was being truncated, and the smoke run's
+  zero truncated rows were evidence rather than a coincidence. That was also
+  challenged fairly (zero is consistent with the sentinel never matching), so
+  `tests/test_heylook.py` now pins `truncated` against the three `stop_reason`
+  values the API declares. The `engines` tag **is** real and supersedes the
+  provider-key read. Relayed claims get checked; this batch was right twice and
+  wrong once, in the direction of alarm.
+- **An inference about heylook's KV knobs is withdrawn, and the server's own
+  text is why.** Told the owner that
   `max_kv_size` and `cache_type` bound the allocation and offered to time
   reloads; the heylook side says both are inert for this checkpoint family and
-  `context_length` allocates nothing on MLX. Not verified here — that server
-  was down — so it is recorded as their claim, in
-  [`../quantization-strategy.md`](../quantization-strategy.md) section 17,
-  rather than adopted silently or ignored.
+  `context_length` allocates nothing on MLX. Now confirmed from
+  `/v1/admin/model-options`, which names the architectures affected —
+  `qwen3_5` among them — and says `max_kv_size` is "NOT A PREALLOCATION and not
+  a load-time lever". So the withdrawal stands on evidence rather than
+  deference, and it was wrong on two counts: preallocation, and applicability.
+  [`../quantization-strategy.md`](../quantization-strategy.md) section 17.
 
 - **Step count matters much less for edit than for t2i, and the owner's read
   that 20 is enough holds where it was made.** Swept 16/20/25/30/40 twice, same
