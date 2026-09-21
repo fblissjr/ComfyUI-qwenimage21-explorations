@@ -35,6 +35,14 @@ one.** diffusers and LightX2V ship 40; the Comfy-Org graph ships 25. Nothing
 here establishes which is better, and the example graphs follow the official
 ComfyUI value because that is the graph they are modelled on.
 
+**What a sweep did establish is that the answer differs by mode.** Edit with a
+reference barely moves across 16 to 40; t2i moves several times more and is
+still moving at 20, settling around 30. So a single step default is a
+compromise between two different needs, and the cheap win is a lower count on
+edit rather than on both. Conditions and the caveats are in
+[`decisions.md`](decisions.md); re-derive with `scripts/sigma_schedule.py` for
+the schedules and a sweep for the renders.
+
 ### The one thing nobody disagrees about
 
 **mu is derived from the target image's latent grid, and nothing else.** Not

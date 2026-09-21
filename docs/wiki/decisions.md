@@ -43,6 +43,24 @@ date heading is accurate, not an artifact of a young page.
   unknown (whether the artifact repacks cleanly into the kernel's expected
   layout). In [`next_steps.md`](next_steps.md).
 
+- **Step count matters much less for edit than for t2i, and the owner's read
+  that 20 is enough holds where it was made.** Swept 16/20/25/30/40 twice, same
+  prompt and seed in each sweep, one scene each. **Edit with one reference
+  barely moves at all** across that whole range — the adjacent differences are
+  a fraction of a level out of 255 and do not shrink, so there is nothing to
+  converge to; 16 is already close to 40. **t2i moves several times more and is
+  still moving at 20**, settling only around 30: its distance to the 40-step arm
+  falls steadily where edit's is flat from the start. A reference constrains the
+  trajectory hard enough that the schedule has little left to decide, which is
+  the mechanism the split is consistent with.
+
+  **What this does not establish.** A pixel difference is not a quality
+  judgement, and looking at the t2i pair the gap is mostly the subject shifting
+  scale rather than detail improving. One scene per mode, one seed, judged by
+  eye. The example graphs still ship the official 25;
+  [`sampling.md`](sampling.md) records that nothing here says which step count
+  is better, and a default should move on more than one scene.
+
 - **The whole graph was exercised on a live server, and the pipeline is
   deterministic.** t2i at two canvases, edit at one reference, at two of the
   same size, and at two of different sizes and aspects, plus a step sweep — all
