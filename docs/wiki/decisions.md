@@ -126,7 +126,21 @@ date heading is accurate, not an artifact of a young page.
   (`execution_cached` confirmed no new call). The recovered run had a general
   preset's system prompt, `contract_ok` false and an **empty
   `rewritten_prompt`**, and the encoder was wired to that output -- its image
-  was encoded from nothing. That fallback is still open.
+  was encoded from nothing.
+
+- **An answer without JSON is the prompt, as it is upstream** (the owner: "just
+  use the response as-is"). Replaying the same request directly showed what
+  the node was discarding: with the `pirate` preset the expander ignored the
+  pirate instruction and wrote a full rewritten prompt, in plain prose. The
+  JSON wrapper comes only from the output format in the trained system prompt,
+  so any preset that replaces it gets prose. The reference runner already
+  keeps it -- `pe_core.py::parse_answer` falls back to the raw answer and sets
+  `parse_ok` false -- and this parser returned an empty prompt instead, a
+  divergence rather than a choice. Now the reply is `rewritten_prompt` until a
+  JSON object replaces it (`answer.py::_parse_body`), and `contract_ok` still
+  reports the miss. The JSON matters only for `wh_ratio` and `ratio_follow`,
+  which pick the canvas; the shipped graphs take the canvas from the latent
+  node, so for them the prose is everything.
 
 - **The client's field spellings are verified against the live server, not
   assumed.** heylook added 422s naming the right spelling for three fields it

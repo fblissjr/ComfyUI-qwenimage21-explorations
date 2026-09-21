@@ -32,6 +32,23 @@ def test_truncated_thinking_trace_is_unparseable_not_a_crash():
     assert "json:unparseable" in a.violations
 
 
+def test_an_answer_without_json_is_the_prompt_as_is():
+    """What a general-purpose system prompt gets: a good rewritten prompt in prose.
+
+    The reference runner keeps it (pe_core.py::parse_answer); dropping it sent
+    an empty prompt to the encoder. It still grades as unparseable.
+    """
+    prose = "A richly textured fantasy oil painting shows a capybara seated indoors."
+    a = parse_and_grade(wrap(prose), task="t2i")
+    assert a.rewritten_prompt == prose
+    assert not a.parse_ok and not a.contract_ok
+    assert "json:unparseable" in a.violations
+
+
+def test_a_truncated_trace_leaves_no_prompt():
+    assert parse_and_grade("<think>\nreasoning that never ends", task="t2i").rewritten_prompt == ""
+
+
 def test_positive_prompt_alias_accepted():
     a = parse_and_grade(wrap('{"positive_prompt":"x","wh_ratio":"1:1"}'), task="t2i")
     assert a.rewritten_prompt == "x"

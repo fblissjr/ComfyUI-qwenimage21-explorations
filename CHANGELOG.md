@@ -56,6 +56,10 @@
   else supplies one the expander sends no `system` field and reports
   `system_source` "none", instead of failing the run. A graph with no preset
   and no checkpoint runs the same way rather than raising.
+- An expander answer with no JSON object is used as the prompt as-is, matching
+  the reference runner's fallback, instead of an empty `rewritten_prompt`.
+  `contract_ok` still reports it. A preset whose system prompt lacks the
+  trained output format gets exactly this: a full rewritten prompt in prose.
 - A preset can raise the profile's `max_tokens` but no longer lower it, so a
   general-chat preset cannot undo the t2i cap that prevents truncated traces
   (`profiles.py::with_preset`).

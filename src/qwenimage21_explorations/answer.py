@@ -1,6 +1,7 @@
 """Parse and grade a prompt expander's answer.
 
-The expanders emit a thinking trace followed by a JSON object. Syntactic
+The expanders emit a thinking trace followed by a JSON object; an answer
+with none is still the prompt, and only grades as unparseable. Syntactic
 validity (`parse_ok`) is the weakest useful gate: the answer contract is
 mode-dependent, and a degraded model that still emits valid JSON while breaking
 the contract is exactly the failure a parse-only check misses.
@@ -105,6 +106,11 @@ def parse(text: str) -> Answer:
 
 
 def _parse_body(ans: Answer) -> Answer:
+    # Until a JSON object replaces it, the answer itself is the prompt, as in the
+    # reference runner (pe_core.py::parse_answer). A system prompt without the
+    # trained output format gets a good rewritten prompt in plain prose, and
+    # dropping it sent the encoder nothing. parse_ok stays False; grade reports it.
+    ans.rewritten_prompt = ans.body
     candidate = strip_fences(ans.body)
     blob = candidate if candidate.startswith("{") else (_first_json_object(candidate) or "")
     if not blob:
