@@ -111,10 +111,21 @@ NOTE = """## Prompt expansion through heylook
 heylook and wires the rewritten prompt into the encode node.
 
 **Set before running**
-- `base_url` -- your heylook server.
-- `checkpoint_dir` -- the expander checkpoint's folder, for its `system_prompt.txt`.
-  The prompt ships inside the checkpoint on purpose; a second copy drifts.
+- `base_url` -- your heylook server. The value shipped here is a placeholder;
+  no address is stored in this file.
+- **Either** `checkpoint_dir` -- the expander checkpoint's folder, for its
+  `system_prompt.txt`, which ships inside the checkpoint on purpose --
+  **or** `preset`, a preset stored on the server, by name or id.
 - `model` -- blank derives the served name from `task`.
+
+**Presets**
+A preset carries sampler values, a reasoning level and usually a system prompt.
+It is expanded here into explicit fields: the server refuses a preset as a
+request field, and its stored spellings are not the wire's. Precedence is raw
+text, then a local template, then the preset, then the checkpoint -- and the
+`system_source` output says which one won, so it is never a guess. A
+general-purpose preset's prompt replaces the trained contract and the answer
+will not conform; `contract_ok` is what reports that.
 
 **Worth knowing**
 - `sampling: reference` is the upstream profile. Use `greedy` when comparing two
@@ -170,6 +181,7 @@ def build(edit: bool) -> dict:
         g.out(pe, name, "STRING")
     g.out(pe, "contract_ok", "BOOLEAN")
     g.out(pe, "violations", "STRING")
+    g.out(pe, "system_source", "STRING")
 
     enc = g.add("TextEncodeQwenImage21", (1380, 40), ["", "", 1024], size=(420, 300))
     g.sock(enc, "clip", "CLIP")
@@ -238,6 +250,7 @@ def build(edit: bool) -> dict:
 
     save = g.add("SaveImage", (2480, 40), ["qwen_image_2.1_pe"], size=(420, 460))
     g.sock(save, "images", "IMAGE")
+    g.out(save, "images", "IMAGE")     # an output node still declares one; the official graphs carry it
     g.link((dec, 0), (save, 0), "IMAGE")
     return g.json()
 
@@ -319,6 +332,12 @@ def check_against_server(doc: dict, base_url: str) -> list[str]:
             if i["name"].split(".")[0] not in allowed:
                 errs.append(f"{n['type']}: input {i['name']!r} is not in the server's schema")
         outs = oi[n["type"]]["output"]
+        # A SHORT list is the drift that hides: a node gains an output, the
+        # graph keeps the old count, and every present slot still validates.
+        if len(n["outputs"]) != len(outs):
+            names = oi[n["type"]].get("output_name") or outs
+            errs.append(f"{n['type']}: graph has {len(n['outputs'])} outputs, "
+                        f"server declares {len(outs)} -> {list(names)}")
         for k, o in enumerate(n["outputs"]):
             if k >= len(outs):
                 errs.append(f"{n['type']}: output[{k}] beyond the server's {len(outs)}")

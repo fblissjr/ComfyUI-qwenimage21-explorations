@@ -53,6 +53,30 @@ def schema_widgets(node_cls):
     return [i.id for i in node_cls.define_schema().inputs if i.io_type in WIDGET_TYPES]
 
 
+def graph_node(kind):
+    """The node of that type in a generated graph, or None."""
+    import json
+    doc = json.loads((REPO / "example_workflows/qwen_image_2.1_edit_heylook_pe.json").read_text())
+    return next((n for n in doc["nodes"] if n["type"] == kind), None)
+
+
+@pytest.mark.parametrize("attr", ["PEExpand", "EncodeStructured", "Sigmas"])
+def test_generated_graph_carries_every_output_the_node_declares(nodes, attr):
+    """A short output list still validates slot by slot, so it needs its own check.
+
+    On 2026-09-20 the node gained `system_source` and the graph kept six
+    outputs; the widget check could not see it and the per-slot type check had
+    nothing to compare the seventh against.
+    """
+    cls = getattr(nodes, attr)
+    node = graph_node(cls.define_schema().node_id)
+    if node is None:
+        pytest.skip("not used by the example graphs")
+    # A socket with no display name shows its type, which is what the graph carries.
+    declared = [o.display_name or o.io_type for o in cls.define_schema().outputs]
+    assert [o["name"] for o in node["outputs"]] == declared
+
+
 @pytest.mark.parametrize("attr", ["PEExpand", "EncodeStructured", "Sigmas"])
 def test_generator_widget_list_matches_the_node(nodes, attr):
     cls = getattr(nodes, attr)
