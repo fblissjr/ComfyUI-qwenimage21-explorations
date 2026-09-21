@@ -28,6 +28,9 @@ UNET = "qwen_image_2.1_bf16.safetensors"
 CLIP = "qwen3vl_8b_bf16.safetensors"
 VAE = "qwen_image_2.1_vae_bf16.safetensors"
 HEYLOOK = "http://localhost:8080"
+#: Mirrors the reference runner's per-image cap, which is also the node's default.
+#: Set it to 0 in a graph that sizes its references upstream -- docs/wiki/sizing.md.
+PE_MAX_PIXELS = 1024 * 1024
 
 # Widget order per node type, so widgets_values lines up with the schema.
 WIDGETS = {
@@ -47,7 +50,7 @@ WIDGETS = {
     "SaveImage": ["filename_prefix"],
     "VAEDecode": [],
     "QwenImage21PEExpand": ["task", "base_url", "model", "sampling", "brief", "checkpoint_dir",
-                            "local_template", "system_override", "thinking", "timeout"],
+                            "local_template", "system_override", "thinking", "timeout", "max_pixels"],
     "MarkdownNote": ["text"],
 }
 
@@ -158,7 +161,7 @@ def build(edit: bool) -> dict:
              else "a capybara wearing a wizard hat, oil painting")
     pe = g.add("QwenImage21PEExpand", (900, 40),
                ["edit" if edit else "t2i", HEYLOOK, "", "reference", brief, "",
-                "(none)", "", True, 900], size=(420, 460))
+                "(none)", "", True, 900, PE_MAX_PIXELS], size=(420, 460))
     if edit:
         g.sock(pe, "images.image_1", "IMAGE", optional=True)
         g.link((loader, 0), (pe, 0), "IMAGE")
