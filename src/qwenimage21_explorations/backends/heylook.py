@@ -63,6 +63,47 @@ class Response:
         return f"<think>\n{self.thinking}\n</think>\n\n{self.text}" if self.thinking else self.text
 
 
+#: A preset's `params` use the server's INTERNAL spellings, and the wire refuses
+#: some of them outright -- `enable_thinking` is a 422 there and appears in most
+#: of the stored presets. Expanding a preset means translating, not forwarding.
+PRESET_ALIASES = {"enable_thinking": "thinking", "max_new_tokens": "max_tokens"}
+
+
+def list_presets(base_url: str, timeout: int = 30) -> list[dict]:
+    """The user presets stored on the server. Names are not unique; ids are."""
+    r = requests.get(f"{base_url.rstrip('/')}/v1/presets", timeout=timeout)
+    r.raise_for_status()
+    return r.json().get("presets", [])
+
+
+def find_preset(presets: list[dict], wanted: str) -> dict:
+    """By id first, then by name, case-insensitively. Raises naming what exists."""
+    want = wanted.strip()
+    for p in presets:
+        if p.get("id") == want:
+            return p
+    matches = [p for p in presets if (p.get("name") or "").lower() == want.lower()]
+    if len(matches) == 1:
+        return matches[0]
+    if not matches:
+        names = ", ".join(sorted((p.get("name") or "?") for p in presets)) or "none stored"
+        raise ValueError(f"no preset named {wanted!r}. Available: {names}")
+    ids = ", ".join(p["id"] for p in matches)
+    raise ValueError(f"{len(matches)} presets are named {wanted!r}; use an id: {ids}")
+
+
+def expand_preset(preset: dict) -> tuple[dict, str]:
+    """A preset to (wire sampler fields, system prompt).
+
+    The server never receives a preset: `preset` as a request field is a
+    deliberate 422, because named sampler bundles were removed in v2.0.30. The
+    UI expands presets client-side into explicit fields and so does this.
+    """
+    params = preset.get("params") or {}
+    fields = {PRESET_ALIASES.get(k, k): v for k, v in params.items()}
+    return fields, (preset.get("system_prompt") or "")
+
+
 def encode_image(source, max_pixels: int = DEFAULT_MAX_PIXELS) -> dict:
     """`source` is a path or an already-open PIL image (what a ComfyUI node has).
 
@@ -124,6 +165,7 @@ def generate(
     presence_penalty: float,
     max_tokens: int,
     thinking: bool | None = None,
+    extra: dict | None = None,
     timeout: int = 900,
 ) -> Response:
     """One expansion. Images go FIRST in the user turn, in order.
@@ -146,6 +188,11 @@ def generate(
     }
     if thinking is not None:
         body["thinking"] = thinking
+    # Sampler fields this signature does not name -- an expanded preset's
+    # `reasoning_effort`, say. The request model refuses unknown fields, so a
+    # wrong spelling here is a 422 rather than a silent drop.
+    if extra:
+        body.update(extra)
     # Hanging up does NOT cancel on this server: a non-streaming run writes
     # nothing until it finishes, so a timeout here leaves it generating and
     # blocking everything queued behind it. The explicit DELETE is the stop,

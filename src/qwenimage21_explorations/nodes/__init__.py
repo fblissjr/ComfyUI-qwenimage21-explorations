@@ -381,6 +381,13 @@ class PEExpand(io.ComfyNode):
                                tooltip="reference is the upstream profile. greedy makes two runs of one arm agree, which is what a comparison needs."),
                 io.String.Input("brief", multiline=True, dynamic_prompts=False, default="",
                                 tooltip="The user's request, in any language. Sent verbatim."),
+                io.String.Input("preset", default="", optional=True,
+                                tooltip=(
+                                    "A preset stored on the server, by name or id. Blank uses none. "
+                                    "Its sampler values are layered over the profile and its system "
+                                    "prompt is used only when nothing else supplies one. Expanded "
+                                    "here, because the server refuses a preset as a request field."
+                                )),
                 io.String.Input("checkpoint_dir", default="", optional=True,
                                 tooltip="Directory holding the expander's system_prompt.txt. Preferred source."),
                 io.Combo.Input("local_template", options=local, default="(none)", optional=True,
@@ -421,19 +428,32 @@ class PEExpand(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, task, base_url, model, sampling, brief, checkpoint_dir="", local_template="(none)",
-                system_override="", thinking=True, timeout=900,
+    def execute(cls, task, base_url, model, sampling, brief, preset="", checkpoint_dir="",
+                local_template="(none)", system_override="", thinking=True, timeout=900,
                 max_pixels=heylook.DEFAULT_MAX_PIXELS,
                 images: io.Autogrow.Type = None) -> io.NodeOutput:
+        preset_fields, preset_system = {}, ""
+        if preset.strip():
+            found = heylook.find_preset(heylook.list_presets(base_url), preset)
+            preset_fields, preset_system = heylook.expand_preset(found)
+
         tpl = _TEMPLATES_DIR / f"{local_template}.md" if local_template not in ("", "(none)") else None
+        # The preset's system prompt is the last resort, so wiring a checkpoint
+        # or a template still wins, and an empty everything still errors clearly.
+        fallback = "" if (tpl or checkpoint_dir.strip()) else preset_system
         system = templates.resolve(
-            explicit_text=system_override,
+            explicit_text=system_override or fallback,
             template_path=tpl,
             ckpt_dir=checkpoint_dir.strip() or None,
         ).text
 
         frames = _autogrow_images(images)
-        profile = (GREEDY if sampling == "greedy" else PROFILES)[task]
+        profile = dict((GREEDY if sampling == "greedy" else PROFILES)[task])
+        # The preset is an explicit choice, so it wins over the profile.
+        named = set(profile) | {"thinking"}
+        profile.update({k: v for k, v in preset_fields.items() if k in named})
+        extra = {k: v for k, v in preset_fields.items() if k not in named}
+        thinking = profile.pop("thinking", thinking)
         resp = heylook.generate(
             base_url=base_url,
             model=model.strip() or HEYLOOK_MODELS[task],
@@ -442,6 +462,7 @@ class PEExpand(io.ComfyNode):
             images=[_to_pil(f) for f in frames],
             max_pixels=max_pixels,
             thinking=thinking,
+            extra=extra or None,
             timeout=timeout,
             **profile,
         )

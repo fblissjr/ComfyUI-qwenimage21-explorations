@@ -128,3 +128,46 @@ def test_a_delivered_request_is_not_cancelled(monkeypatch):
                      temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
                      presence_penalty=0.0, max_tokens=10)
     assert calls == []
+
+
+PRESETS = [
+    {"id": "aaa", "name": "normal", "system_prompt": None,
+     "params": {"temperature": 1.2, "max_tokens": 16000, "top_p": 0.95, "enable_thinking": True}},
+    {"id": "bbb", "name": "coreh3", "system_prompt": "Convert the request...", "params": {}},
+    {"id": "ccc", "name": "dupe", "params": {}},
+    {"id": "ddd", "name": "DUPE", "params": {}},
+]
+
+
+def test_a_preset_is_translated_not_forwarded():
+    """`enable_thinking` is a 422 on the wire and is in most stored presets.
+
+    Forwarding a preset's params verbatim would fail on exactly the ones people
+    use. Expanding means translating to the wire's spellings.
+    """
+    fields, system = heylook.expand_preset(PRESETS[0])
+    assert "enable_thinking" not in fields
+    assert fields["thinking"] is True
+    assert fields["temperature"] == 1.2 and fields["max_tokens"] == 16000
+    assert system == ""
+
+
+def test_a_presets_system_prompt_comes_back_with_it():
+    fields, system = heylook.expand_preset(PRESETS[1])
+    assert fields == {} and system.startswith("Convert the request")
+
+
+def test_a_preset_is_found_by_id_or_name_case_insensitively():
+    assert heylook.find_preset(PRESETS, "aaa")["name"] == "normal"
+    assert heylook.find_preset(PRESETS, "NORMAL")["id"] == "aaa"
+
+
+def test_a_missing_preset_names_what_exists():
+    with pytest.raises(ValueError, match="Available:"):
+        heylook.find_preset(PRESETS, "nope")
+
+
+def test_an_ambiguous_name_asks_for_an_id():
+    """Preset names are not unique on the server; ids are."""
+    with pytest.raises(ValueError, match="use an id"):
+        heylook.find_preset(PRESETS, "dupe")

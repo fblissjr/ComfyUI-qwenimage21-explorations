@@ -49,8 +49,9 @@ WIDGETS = {
     "LoadImage": ["image", "upload"],
     "SaveImage": ["filename_prefix"],
     "VAEDecode": [],
-    "QwenImage21PEExpand": ["task", "base_url", "model", "sampling", "brief", "checkpoint_dir",
-                            "local_template", "system_override", "thinking", "timeout", "max_pixels"],
+    "QwenImage21PEExpand": ["task", "base_url", "model", "sampling", "brief", "preset",
+                            "checkpoint_dir", "local_template", "system_override", "thinking",
+                            "timeout", "max_pixels"],
     "MarkdownNote": ["text"],
 }
 
@@ -160,8 +161,8 @@ def build(edit: bool) -> dict:
     brief = ("put the cat on a small wooden boat at dawn" if edit
              else "a capybara wearing a wizard hat, oil painting")
     pe = g.add("QwenImage21PEExpand", (900, 40),
-               ["edit" if edit else "t2i", HEYLOOK, "", "reference", brief, "",
-                "(none)", "", True, 900, PE_MAX_PIXELS], size=(420, 460))
+               ["edit" if edit else "t2i", HEYLOOK, "", "reference", brief, "", "",
+                "(none)", "", True, 900, PE_MAX_PIXELS], size=(420, 500))
     if edit:
         g.sock(pe, "images.image_1", "IMAGE", optional=True)
         g.link((loader, 0), (pe, 0), "IMAGE")

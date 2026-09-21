@@ -22,8 +22,26 @@
   `auto` does not carry H3's rotated quantizer, which was graded on H3
   captures and is ungraded here.
 
-  **No speed claim.** Nothing has run on a GPU. The A/B that would produce one
-  is named in the docstring.
+  Masked calls, when `sage_masked` opts them in, go to
+  `sageattn_qk_int8_pv_fp16_triton` rather than to whatever `sage_mode` names.
+  Not a preference: the sm89 fp8++ general-mask path serves only a trailing
+  window of the keys and silently ignores the mask before it, which a causal
+  mask -- what 2.1's text segments carry -- falls outside of. Found while
+  smoke-testing this node; characterised in the sage fork at
+  `tests/repros/repro_fp8_mask_window.py` and recorded under its "Known kernel
+  bugs".
+
+  **No speed claim.** The kernel has been exercised at 2.1's shapes and is
+  correct there; nothing has been timed, and there is no A/B. The one that
+  would produce a number is named in the docstring.
+
+- `scripts/smoke_sage.py` -- runs the real kernel at the two shapes the model
+  produces, prints each beside SDPA, and exits non-zero if a call falls back
+  silently or a masked call does not honour its mask. The mask check is
+  structural rather than an rtol threshold: under a causal mask row 0 attends
+  to one key, so its output must BE that key's value, and an approximate
+  kernel has nothing to hide behind. Forcing masked calls back onto the fp8
+  path was confirmed to turn it red.
 
 - `tests/test_sage.py` -- the routing policy and the override's reshape
   contract, on stubbed kernels, with no CUDA context. Seven deliberate

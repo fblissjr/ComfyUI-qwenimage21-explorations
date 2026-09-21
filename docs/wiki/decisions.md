@@ -51,6 +51,31 @@ date heading is accurate, not an artifact of a young page.
   so parity is kept and the round trip is gone. Prompted by the heylook side;
   the round trip was safe in practice, and a body containing `</think>` is the
   case it could not have promised — now a test.
+- **Server presets are supported, by expanding them here rather than sending
+  them.** The node takes a `preset` by name or id. **The server refuses a
+  preset as a request field** — a deliberate 422, because named sampler bundles
+  were removed in v2.0.30 — so the UI expands them client-side and so does
+  this.
+
+  **The translation is load-bearing, not tidiness.** A preset's `params` use
+  the server's internal spellings, and `enable_thinking` appears in most of the
+  stored ones while being a 422 on the wire. Verified both directions against
+  the live server: the expanded field set answers 200 and the same preset
+  forwarded verbatim answers 422. Forwarding would have failed on exactly the
+  presets people use.
+
+  Precedence, so it is predictable: the preset's sampler values win over the
+  profile because choosing one is explicit, and its system prompt is the **last
+  resort** — a checkpoint or a template still wins, and supplying nothing still
+  errors clearly.
+
+  **Not a dropdown, and that is a ComfyUI limit rather than a choice.** A
+  combo's options are fixed when the schema is built at startup, while
+  `base_url` is a runtime input, so a dropdown would have to guess the server
+  address before the graph names it and would hang or empty out when the server
+  is down. It is a string resolved at execute, and a miss raises naming every
+  preset the server has.
+
 - **The client's field spellings are verified against the live server, not
   assumed.** heylook added 422s naming the right spelling for three fields it
   used to drop in silence — `enable_thinking`, `max_new_tokens` and
