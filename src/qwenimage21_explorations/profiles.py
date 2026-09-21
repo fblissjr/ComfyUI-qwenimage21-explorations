@@ -7,6 +7,18 @@ TextGenerate defaults differ again on min_p and repetition_penalty. A max_tokens
 below the thinking trace truncates mid-stream, and a truncated trace parses as
 invalid JSON -- indistinguishable downstream from a quantization fault.
 
+The sampling settings **never travelled with the weights at all**, which is
+worth knowing because it is easy to assume a conversion dropped them. Checked
+2026-09-20: both PE checkpoints' `generation_config.json` and both mlx-vlm
+conversions of them carry `_from_model_config: true` and **no sampling keys**,
+identically. The MLX conversion is faithful; there was nothing to lose. So no
+re-conversion recovers them and no server can read them off the artifact --
+they exist only in the reference runner's Python, and therefore here.
+
+Note the asymmetry with `templates.py`: the system prompt **does** ship inside
+the checkpoint, which is why that module prefers the checkpoint's copy. The
+sampling does not, which is why this module is a constant.
+
 Pure data: importable without ComfyUI, so scripts and nodes share one source.
 """
 

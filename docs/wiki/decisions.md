@@ -51,6 +51,26 @@ date heading is accurate, not an artifact of a young page.
   so parity is kept and the round trip is gone. Prompted by the heylook side;
   the round trip was safe in practice, and a body containing `</think>` is the
   case it could not have promised — now a test.
+- **The expanders' sampling never shipped with the weights, rather than being
+  lost in conversion.** Relayed from the heylook side as a conversion loss;
+  checked here instead, and both HF checkpoints and both mlx-vlm conversions
+  carry `_from_model_config: true` with **no sampling keys at all**, byte for
+  byte the same shape. Nothing was dropped because nothing was there. The
+  practical upshot is the same — send them explicitly or set them per model —
+  but the diagnosis matters: re-converting recovers nothing, and no server can
+  read them off the artifact. Recorded in `profiles.py`, next to the
+  asymmetry it explains: the system prompt **does** travel with the weights,
+  which is why `templates.py` prefers the checkpoint's copy.
+- **Tuning `top_k` or `min_p` away from the reference would be an override, not
+  a fix.** The heylook side makes a reasonable case that `top_k` 20 is
+  aggressive for prose and that `min_p` is the better diversity lever. Both are
+  arguments about output taste, and both differ from what `pe_core` specifies,
+  so they belong in `profiles.OVERRIDES` with a reason if the owner wants them
+  — the same treatment the t2i cap got. Worth one caveat their vantage does not
+  include: these models emit a contract-bearing JSON envelope around the prose,
+  so a constraint that costs diversity in a rewrite may be buying conformance
+  in the envelope, and the vendor chose 20 knowing what the model emits.
+
 - **The relayed heylook claims were checked against that server, and they do
   not all hold.** There is **no server-side `max_tokens` cap** — the schema
   bounds it below only, and the options endpoint says a request field wins over
