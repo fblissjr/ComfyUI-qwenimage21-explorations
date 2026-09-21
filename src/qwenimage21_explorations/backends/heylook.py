@@ -18,12 +18,25 @@ Two behaviours worth knowing before comparing a heylook row to a ComfyUI row:
 The server does not resize images (`/v1/capabilities`: "No server-side resize --
 clients downscale before sending"), so `encode_image` caps pixels to match
 training.
+
+**Block order does not place the image markers on this path**, unlike
+`chat.py`, which positions them itself for ComfyUI. The server coalesces every
+text part of a message into one run and then places N markers by the model
+family's own convention. So interleaving labels between images would not
+survive: a per-image label belongs inside the single text block. Images also
+have to ride on user turns, which is the only kind this builds.
+
+The wire spelling is `thinking`, not `enable_thinking`. The request model
+ignores unknown fields, so the wrong spelling is dropped in silence and the run
+succeeds on the server's default -- the reason this sends the name the schema
+declares rather than the one the config files use.
 """
 
 from __future__ import annotations
 
 import base64
 import io
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -133,6 +146,23 @@ def generate(
     }
     if thinking is not None:
         body["thinking"] = thinking
-    r = requests.post(f"{base_url.rstrip('/')}/v1/messages", json=body, timeout=timeout)
-    r.raise_for_status()
-    return normalise_response(r.json())
+    # Hanging up does NOT cancel on this server: a non-streaming run writes
+    # nothing until it finishes, so a timeout here leaves it generating and
+    # blocking everything queued behind it. The explicit DELETE is the stop,
+    # and X-Request-ID is the handle for it.
+    request_id = uuid.uuid4().hex
+    root = base_url.rstrip("/")
+    delivered = False
+    try:
+        r = requests.post(f"{root}/v1/messages", json=body, timeout=timeout,
+                          headers={"X-Request-ID": request_id})
+        r.raise_for_status()
+        out = normalise_response(r.json())
+        delivered = True
+        return out
+    finally:
+        if not delivered:
+            try:
+                requests.delete(f"{root}/v1/requests/{request_id}", timeout=30)
+            except requests.RequestException:
+                pass  # the run is already orphaned; failing to say so changes nothing

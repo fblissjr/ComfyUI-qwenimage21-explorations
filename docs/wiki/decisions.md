@@ -51,6 +51,16 @@ date heading is accurate, not an artifact of a young page.
   so parity is kept and the round trip is gone. Prompted by the heylook side;
   the round trip was safe in practice, and a body containing `</think>` is the
   case it could not have promised — now a test.
+- **A cancelled or timed-out expansion used to keep running on the server.**
+  heylook writes nothing for a non-streaming request until it finishes, so
+  hanging up does not stop it: the run continues and blocks everything queued
+  behind it. The client now sends `X-Request-ID` and issues
+  `DELETE /v1/requests/{id}` whenever a request does not deliver, timeout or
+  otherwise. Found from a wire reference relayed by the heylook side and
+  checked against that server's own spec, which carries the route.
+  `tests/test_heylook.py` covers both directions, including that a delivered
+  request cancels nothing.
+
 - **The expanders' sampling never shipped with the weights, rather than being
   lost in conversion.** Relayed from the heylook side as a conversion loss;
   checked here instead, and both HF checkpoints and both mlx-vlm conversions

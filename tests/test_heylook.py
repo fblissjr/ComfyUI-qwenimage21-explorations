@@ -7,6 +7,8 @@ signal the harness depends on, and the pixel cap the server will not apply.
 import base64
 import io
 
+import pytest
+
 from qwenimage21_explorations.answer import parse_and_grade
 from qwenimage21_explorations.backends import heylook
 from qwenimage21_explorations.backends.heylook import normalise_response
@@ -84,3 +86,45 @@ def test_truncated_reads_the_sentinel_the_api_declares():
     got = {r: normalise_response(payload([{"type": "text", "text": "{}"}], stop=r)).truncated
            for r in declared}
     assert got == {"end_turn": False, "max_tokens": True, "stop_sequence": False}
+
+
+def test_a_failed_request_is_cancelled_server_side(monkeypatch):
+    """Hanging up does not stop a non-streaming run; it blocks the queue behind it.
+
+    So a timeout has to send the explicit DELETE, keyed by the same
+    X-Request-ID the POST carried.
+    """
+    seen = {}
+
+    def fake_post(url, **kw):
+        seen["post"] = (url, kw["headers"]["X-Request-ID"])
+        raise heylook.requests.Timeout("too slow")
+
+    def fake_delete(url, **kw):
+        seen["delete"] = url
+
+    monkeypatch.setattr(heylook.requests, "post", fake_post)
+    monkeypatch.setattr(heylook.requests, "delete", fake_delete)
+
+    with pytest.raises(heylook.requests.Timeout):
+        heylook.generate(base_url="http://h/", model="m", system="s", brief="b",
+                         temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                         presence_penalty=0.0, max_tokens=10)
+
+    rid = seen["post"][1]
+    assert seen["delete"].endswith(f"/v1/requests/{rid}"), seen
+
+
+def test_a_delivered_request_is_not_cancelled(monkeypatch):
+    class Ok:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self): return payload([{"type": "text", "text": "{}"}])
+
+    calls = []
+    monkeypatch.setattr(heylook.requests, "post", lambda url, **kw: Ok())
+    monkeypatch.setattr(heylook.requests, "delete", lambda url, **kw: calls.append(url))
+    heylook.generate(base_url="http://h", model="m", system="s", brief="b",
+                     temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                     presence_penalty=0.0, max_tokens=10)
+    assert calls == []
