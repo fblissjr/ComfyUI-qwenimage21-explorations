@@ -208,6 +208,17 @@ date heading is accurate, not an artifact of a young page.
   [`sampling.md`](sampling.md) records that nothing here says which step count
   is better, and a default should move on more than one scene.
 
+- **The shipped graph now runs end to end in its current form, preset-driven.**
+  Until this point the example graphs had been validated against the live
+  schemas but never executed since the rebuild around `SamplerCustomAdvanced`:
+  the two edges the test harness could not cover were the expander's own, and
+  the harness was otherwise a strict subgraph. Closed by running the file
+  unmodified with only `base_url`, `preset` and the brief supplied at runtime —
+  preset fetched and expanded, system prompt taken from it with no
+  `checkpoint_dir` at all, through the encode node, the sigma schedule and the
+  custom sampler to a saved image. **No address is stored in the file**; it
+  ships with a placeholder.
+
 - **The whole graph was exercised on a live server, and the pipeline is
   deterministic.** t2i at two canvases, edit at one reference, at two of the
   same size, and at two of different sizes and aspects, plus a step sweep — all
