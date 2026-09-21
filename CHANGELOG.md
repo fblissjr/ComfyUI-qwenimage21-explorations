@@ -58,6 +58,10 @@
   graphs now size their `EmptyLatentImage` through it (edit included, whose
   latent previously came from the encode node), so they gained a node --
   regenerate any copy. Logic in `canvas.py`.
+- Both expander example graphs carry a core `PreviewAny` on `rewritten_prompt`,
+  titled "Rewritten prompt": it shows the expansion in the editor and records it
+  in the run's history, where a client reads it back. The generator's link check
+  accepts a `*` socket, as saved workflows do.
 - A server preset with no system prompt overrides nothing, and when nothing
   else supplies one the expander sends no `system` field and reports
   `system_source` "none", instead of failing the run. A graph with no preset

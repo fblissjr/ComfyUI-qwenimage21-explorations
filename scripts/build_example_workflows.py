@@ -69,6 +69,7 @@ WIDGETS = {
                             "checkpoint_dir", "local_template", "system_override", "thinking",
                             "timeout", "max_pixels"],
     "QwenImage21Canvas": ["wh_ratio", "ratio_follow", "width", "height", "resolution"],
+    "PreviewAny": [],
     "MarkdownNote": ["text"],
 }
 
@@ -205,6 +206,12 @@ def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_
         g.out(pe, "contract_ok", "BOOLEAN")
         g.out(pe, "violations", "STRING")
         g.out(pe, "system_source", "STRING")
+        # Shows the rewritten prompt, and records it in the run's history,
+        # which is where a client reads it back from.
+        shown = g.add("PreviewAny", (900, 580), [], size=(420, 240), title="Rewritten prompt")
+        g.sock(shown, "source", "*")
+        g.out(shown, "STRING", "STRING")
+        g.link((pe, 0), (shown, 0), "STRING")
 
     enc = g.add("TextEncodeQwenImage21", (1380, 40),
                 ["" if expander else brief, "", 1024], size=(420, 300))
@@ -353,7 +360,8 @@ def validate(doc: dict) -> list[str]:
                 errs.append(f"link {lid} references missing node {nid}")
             elif slot >= len(node[key]):
                 errs.append(f"link {lid}: {node['type']} has no {key}[{slot}]")
-            elif node[key][slot]["type"] != type_:
+            # A "*" socket takes anything; the link keeps the source's type.
+            elif node[key][slot]["type"] not in (type_, "*"):
                 errs.append(f"link {lid}: {node['type']}.{key}[{slot}] is "
                             f"{node[key][slot]['type']}, link says {type_}")
     for n in doc["nodes"]:
