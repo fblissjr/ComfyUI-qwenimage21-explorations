@@ -171,3 +171,22 @@ def test_an_ambiguous_name_asks_for_an_id():
     """Preset names are not unique on the server; ids are."""
     with pytest.raises(ValueError, match="use an id"):
         heylook.find_preset(PRESETS, "dupe")
+
+
+def test_an_error_carries_the_server_s_explanation(monkeypatch):
+    """raise_for_status throws the body away, and the body is the diagnosis.
+
+    This server answers a bad field with a 422 naming the right spelling. A node
+    that surfaces only "422 Client Error" sends whoever hit it off to reproduce
+    the request by hand, which is a round trip for information already sent.
+    """
+    class Resp:
+        status_code = 422
+        text = '{"detail":[{"msg":"`enable_thinking` is not a field -- send `thinking`"}]}'
+
+    monkeypatch.setattr(heylook.requests, "post", lambda *a, **k: Resp())
+    monkeypatch.setattr(heylook.requests, "delete", lambda *a, **k: None)
+    with pytest.raises(heylook.requests.HTTPError, match="send `thinking`"):
+        heylook.generate(base_url="http://h", model="m", system="s", brief="b",
+                         temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                         presence_penalty=0.0, max_tokens=8)

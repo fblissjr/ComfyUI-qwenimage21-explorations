@@ -203,7 +203,14 @@ def generate(
     try:
         r = requests.post(f"{root}/v1/messages", json=body, timeout=timeout,
                           headers={"X-Request-ID": request_id})
-        r.raise_for_status()
+        if r.status_code >= 400:
+            # raise_for_status throws away the body, and the body is where this
+            # server says what was wrong -- a 422 names the field and the right
+            # spelling. Without it a node surfaces "500 Server Error" and the
+            # reason has to be reproduced by hand.
+            raise requests.HTTPError(
+                f"{r.status_code} from {root}/v1/messages: {r.text[:600]}", response=r
+            )
         out = normalise_response(r.json())
         delivered = True
         return out
