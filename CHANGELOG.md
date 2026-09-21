@@ -48,6 +48,11 @@ research that shaped it.
   and ComfyUI core each run 2.1 for text-to-image and for edit: the conditioning
   contract they agree on, the three bookkeeping strategies they use for one
   fusion, and the expander stage none of them runs. The wiki's one owner page.
+- `docs/wiki/sampling.md` and `scripts/sigma_schedule.py` — the sigma schedule:
+  what the release's scheduler config asks for, what each implementation does,
+  and ComfyUI's two departures (a constant shift where the release asks for a
+  dynamic one, and no `shift_terminal` at all). `--widgets` prints the stock
+  `ModelSamplingFlux` values that close the dynamic half exactly.
 - `docs/wiki/sizing.md` and `scripts/refview_bounds.py` — reference image
   sizing: why 2.1 couples the encoder's and the VAE's view of a reference when
   H3 did not, the five postures toward the processor's second resize, and the

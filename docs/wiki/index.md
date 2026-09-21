@@ -28,6 +28,7 @@ documents themselves tag their claims.
 | [`decisions.md`](decisions.md) | what was decided, withdrawn or corrected, and when. Newest first, one line per decision with where it lives now |
 | [`upstream.md`](upstream.md) | **how the other implementations run 2.1**, for text-to-image and for edit: what five of them agree on, the three bookkeeping strategies they use for one fusion, and the stage none of them runs. The wiki's one owner page |
 | [`sizing.md`](sizing.md) | **reference image sizing**: why one number feeds two readers in 2.1, the five postures toward the processor's second resize, and the one place ComfyUI cannot notice a divergence. Start here if you know H3's `qwen_view` knob |
+| [`sampling.md`](sampling.md) | **steps, guidance and the sigma schedule**: what each implementation sets, the two places ComfyUI's schedule departs from the release, and the half of that gap a stock node already closes |
 | [`references.md`](references.md) | the checkouts under `coderef/`: what each one is for, and what it is not evidence of. Read before proposing a borrow |
 | [`next_steps.md`](next_steps.md) | **what to do next, and only pointers to why.** The open items are scattered across the long documents; this is the entry point to them |
 
