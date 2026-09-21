@@ -177,7 +177,6 @@ def generate(
     content.append({"type": "text", "text": brief})
     body = {
         "model": model,
-        "system": system,
         "max_tokens": max_tokens,
         "temperature": temperature,
         "top_p": top_p,
@@ -186,6 +185,9 @@ def generate(
         "presence_penalty": presence_penalty,
         "messages": [{"role": "user", "content": content}],
     }
+    # Absent, not empty: an empty string is a system turn with nothing in it.
+    if system:
+        body["system"] = system
     if thinking is not None:
         body["thinking"] = thinking
     # Sampler fields this signature does not name -- an expanded preset's

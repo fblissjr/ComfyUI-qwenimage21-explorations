@@ -103,6 +103,31 @@ date heading is accurate, not an artifact of a young page.
   is down. It is a string resolved at execute, and a miss raises naming every
   preset the server has.
 
+- **A preset without a system prompt overrides nothing, and a preset cannot
+  lower `max_tokens`** (the owner). Two consequences of the preset order above
+  that surfaced from the app, which never sends a checkpoint:
+
+  - A preset with an empty system prompt fell through to the checkpoint and,
+    with none, failed the run on "no system prompt". Now the chain ends in
+    *none*: the request carries no `system` field at all, the server applies
+    the model's own template, and `system_source` reads `none`
+    (`templates.py::resolve_with_preset`, `heylook.py::generate`). This also
+    covers a graph with no preset and no checkpoint, which used to raise.
+  - Preset params replaced the profile wholesale, `max_tokens` included, so a
+    preset's general-chat cap quietly undid the t2i override
+    (`profiles.py::OVERRIDES`) and reopened the truncated-trace failure it
+    exists to prevent. `profiles.py::with_preset` now treats the profile's cap
+    as a floor that a preset can raise but not lower.
+
+  *Found while answering "what did the expander return?", which neither server
+  could answer.* The node publishes no UI output and heylook keeps no request
+  log, so the answer lived only in ComfyUI's node cache; resubmitting the
+  expander node under the same id with preview nodes attached read it back
+  (`execution_cached` confirmed no new call). The recovered run had a general
+  preset's system prompt, `contract_ok` false and an **empty
+  `rewritten_prompt`**, and the encoder was wired to that output -- its image
+  was encoded from nothing. That fallback is still open.
+
 - **The client's field spellings are verified against the live server, not
   assumed.** heylook added 422s naming the right spelling for three fields it
   used to drop in silence — `enable_thinking`, `max_new_tokens` and

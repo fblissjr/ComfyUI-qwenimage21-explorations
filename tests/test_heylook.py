@@ -10,6 +10,7 @@ import io
 import pytest
 
 from qwenimage21_explorations.answer import parse_and_grade
+from qwenimage21_explorations.profiles import PROFILES, with_preset
 from qwenimage21_explorations.backends import heylook
 from qwenimage21_explorations.backends.heylook import normalise_response
 
@@ -137,6 +138,47 @@ PRESETS = [
     {"id": "ccc", "name": "dupe", "params": {}},
     {"id": "ddd", "name": "DUPE", "params": {}},
 ]
+
+
+def _sent_body(monkeypatch, system):
+    class Ok:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self): return payload([{"type": "text", "text": "{}"}])
+
+    sent = {}
+    def fake_post(url, **kw):
+        sent.update(kw["json"])
+        return Ok()
+    monkeypatch.setattr(heylook.requests, "post", fake_post)
+    heylook.generate(base_url="http://h", model="m", system=system, brief="b",
+                     temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                     presence_penalty=0.0, max_tokens=10)
+    return sent
+
+
+def test_no_system_prompt_leaves_the_field_out(monkeypatch):
+    """An empty string is a system turn with nothing in it; absent is the server's default."""
+    assert "system" not in _sent_body(monkeypatch, "")
+    assert _sent_body(monkeypatch, "S")["system"] == "S"
+
+
+def test_a_preset_cannot_lower_max_tokens():
+    """The t2i cap was raised to stop truncated traces; a preset's general-purpose cap would undo it."""
+    profile, _ = with_preset(PROFILES["t2i"], {"max_tokens": 16000, "temperature": 1.2})
+    assert profile["max_tokens"] == PROFILES["t2i"]["max_tokens"]
+    assert profile["temperature"] == 1.2
+
+
+def test_a_preset_can_raise_max_tokens():
+    profile, _ = with_preset(PROFILES["t2i"], {"max_tokens": 64000})
+    assert profile["max_tokens"] == 64000
+
+
+def test_a_preset_field_the_profile_does_not_name_rides_as_extra():
+    profile, extra = with_preset(PROFILES["edit"], {"thinking": False, "reasoning_effort": "medium"})
+    assert profile["thinking"] is False
+    assert extra == {"reasoning_effort": "medium"}
 
 
 def test_a_preset_is_translated_not_forwarded():

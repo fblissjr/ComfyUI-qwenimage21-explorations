@@ -50,6 +50,21 @@ PROFILES: dict[str, dict] = {
     task: {**values, **OVERRIDES.get(task, {})} for task, values in REFERENCE.items()
 }
 
+def with_preset(profile: dict, fields: dict) -> tuple[dict, dict]:
+    """A server preset's fields over a profile, as `(profile, extra)`.
+
+    The preset is an explicit choice, so a field the profile names (or
+    `thinking`) takes the preset's value, and anything else rides as an extra
+    request field. `max_tokens` is the exception: a preset can raise it but not
+    lower it. A preset's cap is set for general chat, and taking it would undo
+    the t2i override above and bring back the truncated trace it prevents.
+    """
+    named = set(profile) | {"thinking"}
+    out = {**profile, **{k: v for k, v in fields.items() if k in named}}
+    out["max_tokens"] = max(out["max_tokens"], profile["max_tokens"])
+    return out, {k: v for k, v in fields.items() if k not in named}
+
+
 # Measurement configuration. You cannot A/B a quant on sampled text: with
 # sampling on, two runs of the SAME arm disagree. ComfyUI's TextGenerate exposes
 # a real greedy path (`sampling_mode: "off"` -> do_sample=False), which is

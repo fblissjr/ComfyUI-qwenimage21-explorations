@@ -23,7 +23,7 @@ from typing_extensions import override
 from .. import answer as answer_mod
 from .. import chat, sage, sigmas as sigmas_mod, templates
 from ..backends import heylook
-from ..profiles import GREEDY, PROFILES
+from ..profiles import GREEDY, PROFILES, with_preset
 
 CATEGORY = "QwenImage21/PE"
 CATEGORY_OPTIMIZE = "QwenImage21/optimize"
@@ -385,9 +385,11 @@ class PEExpand(io.ComfyNode):
                                 tooltip=(
                                     "A preset stored on the server, by name or id. Blank uses none. "
                                     "Its sampler values and reasoning level are layered over the "
-                                    "profile, and its system prompt beats the checkpoint's -- see "
-                                    "the system_source output. A general-purpose preset's prompt "
-                                    "will break the answer contract, which contract_ok reports. "
+                                    "profile, except that it cannot lower max_tokens. Its system "
+                                    "prompt beats the checkpoint's; a preset without one overrides "
+                                    "nothing, and with no checkpoint either no system prompt is sent "
+                                    "-- see the system_source output. A general-purpose preset's "
+                                    "prompt will break the answer contract, which contract_ok reports. "
                                     "Expanded here: the server refuses a preset as a request field."
                                 )),
                 io.String.Input("checkpoint_dir", default="", optional=True,
@@ -442,7 +444,7 @@ class PEExpand(io.ComfyNode):
 
         tpl = _TEMPLATES_DIR / f"{local_template}.md" if local_template not in ("", "(none)") else None
         # Order: raw text, then a local template, then the preset, then the
-        # checkpoint. A preset beats the checkpoint because nearly every stored
+        # checkpoint, then none at all. A preset beats the checkpoint because nearly every stored
         # one carries a system prompt and picking it is the point -- silently
         # preferring the checkpoint would ignore exactly what was asked for.
         # `system_source` is an output so the winner is never a guess.
@@ -455,11 +457,7 @@ class PEExpand(io.ComfyNode):
         system, source = resolved.text, resolved.source
 
         frames = _autogrow_images(images)
-        profile = dict((GREEDY if sampling == "greedy" else PROFILES)[task])
-        # The preset is an explicit choice, so it wins over the profile.
-        named = set(profile) | {"thinking"}
-        profile.update({k: v for k, v in preset_fields.items() if k in named})
-        extra = {k: v for k, v in preset_fields.items() if k not in named}
+        profile, extra = with_preset((GREEDY if sampling == "greedy" else PROFILES)[task], preset_fields)
         thinking = profile.pop("thinking", thinking)
         resp = heylook.generate(
             base_url=base_url,

@@ -106,9 +106,17 @@ def resolve_with_preset(
     prompt replaces the trained contract, and the answer will not conform.
     `answer.grade` is what reports that, and the source is returned here so the
     swap is never silent.
+
+    A preset with no system prompt overrides nothing. When nothing supplies
+    one, the result is empty with source "none": the request then carries no
+    system prompt and the server applies the model's own template. Chosen by
+    the owner over refusing the run, which is what a preset without one did
+    wherever no checkpoint is given -- always, from the app.
     """
     if explicit_text.strip() or template_path:
         return resolve(explicit_text=explicit_text, template_path=template_path)
     if preset_text.strip():
         return SystemPrompt(preset_text.strip(), "preset", {})
-    return resolve(ckpt_dir=ckpt_dir)
+    if ckpt_dir:
+        return resolve(ckpt_dir=ckpt_dir)
+    return SystemPrompt("", "none", {})

@@ -51,9 +51,19 @@ def test_a_blank_preset_does_not_displace_the_checkpoint(ckpt):
     assert r.source == "checkpoint"
 
 
-def test_nothing_at_all_still_errors_clearly():
-    with pytest.raises(ValueError, match="no system prompt"):
-        templates.resolve_with_preset()
+def test_nothing_at_all_sends_no_system_prompt():
+    """Chosen by the owner: run with the server's own template rather than refuse.
+
+    The app never sends a checkpoint, so a preset without a system prompt used
+    to fail the whole run here.
+    """
+    r = templates.resolve_with_preset()
+    assert (r.text, r.source) == ("", "none")
+
+
+def test_a_preset_without_a_system_prompt_overrides_nothing(ckpt):
+    assert templates.resolve_with_preset(preset_text="", ckpt_dir=ckpt).source == "checkpoint"
+    assert templates.resolve_with_preset(preset_text="").source == "none"
 
 
 def test_the_checkpoint_copy_is_preferred_over_a_sibling_file(ckpt):

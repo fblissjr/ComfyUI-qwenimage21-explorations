@@ -50,6 +50,16 @@
   suite green) and that the head-major branch could not tell Q from K. Both
   now have a test that decides them.
 
+### Changed
+
+- A server preset with no system prompt overrides nothing, and when nothing
+  else supplies one the expander sends no `system` field and reports
+  `system_source` "none", instead of failing the run. A graph with no preset
+  and no checkpoint runs the same way rather than raising.
+- A preset can raise the profile's `max_tokens` but no longer lower it, so a
+  general-chat preset cannot undo the t2i cap that prevents truncated traces
+  (`profiles.py::with_preset`).
+
 ## 0.1.0
 
 First working harness for the Qwen-Image 2.1 prompt expanders, plus the
