@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import logging
 import math
+import uuid
 
 import comfy.model_management
 import comfy.utils
@@ -19,11 +21,12 @@ from comfy_api.latest import ComfyExtension, io
 from typing_extensions import override
 
 from .. import answer as answer_mod
-from .. import chat, sigmas as sigmas_mod, templates
+from .. import chat, sage, sigmas as sigmas_mod, templates
 from ..backends import heylook
 from ..profiles import GREEDY, PROFILES
 
 CATEGORY = "QwenImage21/PE"
+CATEGORY_OPTIMIZE = "QwenImage21/optimize"
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _TEMPLATES_DIR = _REPO_ROOT / "templates"
@@ -321,7 +324,8 @@ class QwenImage21Extension(ComfyExtension):
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         # Append only: saved graphs match widget values by index.
-        return [PESystemPrompt, PEPrompt, PEParse, PEExpand, EncodeStructured, Sigmas]
+        return [PESystemPrompt, PEPrompt, PEParse, PEExpand, EncodeStructured, Sigmas,
+                SageAttention]
 
 
 async def comfy_entrypoint() -> QwenImage21Extension:
@@ -451,3 +455,90 @@ class PEExpand(io.ComfyNode):
             graded.rewritten_prompt, graded.wh_ratio, graded.ratio_follow, graded.thinking,
             graded.contract_ok, ", ".join(violations),
         )
+
+
+# ---------------------------------------------------------------------------
+# SageAttention
+
+
+class SageAttention(io.ComfyNode):
+    """Route 2.1's unmasked attention through SageAttention.
+
+    The policy, what it targets and what it declines are `..sage`'s docstring;
+    this node adds a widget per knob and nothing else.
+    """
+
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="QwenImage21SageAttention",
+            display_name="Qwen-Image 2.1 Sage Attention",
+            category=CATEGORY_OPTIMIZE,
+            description=(
+                "Sets ComfyUI's optimized_attention_override so 2.1's unmasked image "
+                "attention runs on SageAttention's INT8-QK / FP8-PV kernel. The masked "
+                "text segments and any short call keep whatever was handling them. "
+                "Leaves the prefix K/V cache on. No speed claim: unmeasured on this model."
+            ),
+            inputs=[
+                io.Model.Input("model"),
+                io.Combo.Input("sage_mode", options=["off"] + sage.MODE_NAMES, default="auto",
+                               tooltip=(
+                                   "off: passthrough, the A/B baseline arm. "
+                                   "auto: sage's own dispatcher, which on Ada picks fp8++. "
+                                   "The rest are explicit kernels for bisecting a suspected "
+                                   "accuracy problem, not settings known better here."
+                               )),
+                io.Int.Input("min_kv_len", default=1024, min=0, max=1 << 22, optional=True,
+                             tooltip=(
+                                   "Only attention whose K is at least this long goes to sage. "
+                                   "Measured on K, not Q: with the prefix cache warm the "
+                                   "target-rows call has a short Q and the whole sequence as K."
+                               )),
+                io.Boolean.Input("sage_masked", default=False, optional=True,
+                                 tooltip=(
+                                   "Also route the masked text segments. The sm89 fp8++ kernel "
+                                   "supports a general mask; those segments are short, so this "
+                                   "is for closing coverage, not for speed."
+                               )),
+                io.Boolean.Input("verbose", default=True, optional=True,
+                                 tooltip="Log one line per distinct shape, naming the kernel that ran."),
+            ],
+            outputs=[io.Model.Output()],
+            is_experimental=True,
+        )
+
+    @classmethod
+    def execute(cls, model, sage_mode, min_kv_len=1024, sage_masked=False,
+                verbose=True) -> io.NodeOutput:
+        if sage_mode == "off":
+            return io.NodeOutput(model)
+
+        kernel_fn, kernel_kwargs = sage.build_kernel(sage_mode)
+        sage.reset_telemetry()
+
+        m = model.clone()
+        options = m.model_options.setdefault("transformer_options", {})
+
+        # An override outranks whatever the checkpoint asked for, and cannot see
+        # what it displaced -- wrap_attn pops preferred_attention before calling
+        # it. Say so here, where the answer is still readable.
+        asked = sage.attention_configs(getattr(m.model, "diffusion_model", None))
+        if asked:
+            methods = sorted({method for _, method in asked})
+            logging.warning(
+                "[qwen21-sage] this checkpoint asks for %s on %d module(s); the "
+                "override replaces it for every call it accepts.",
+                ", ".join(methods), len(asked))
+
+        options["optimized_attention_override"] = sage.make_override(
+            kernel_fn, kernel_kwargs,
+            min_kv_len=int(min_kv_len), sage_masked=bool(sage_masked),
+            verbose=bool(verbose),
+            previous=options.get("optimized_attention_override"),
+        )
+        # An override closure does not change the model hash, so without this the
+        # sampler cache can hand back the unpatched run's latent and the A/B
+        # compares a render against itself.
+        m.patches_uuid = uuid.uuid4()
+        return io.NodeOutput(m)

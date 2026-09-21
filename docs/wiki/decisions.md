@@ -51,6 +51,17 @@ date heading is accurate, not an artifact of a young page.
   so parity is kept and the round trip is gone. Prompted by the heylook side;
   the round trip was safe in practice, and a body containing `</think>` is the
   case it could not have promised — now a test.
+- **The client's field spellings are verified against the live server, not
+  assumed.** heylook added 422s naming the right spelling for three fields it
+  used to drop in silence — `enable_thinking`, `max_new_tokens` and
+  `system_prompt`. Our exact field set answers 200, so nothing here was on the
+  wrong side of it. **Their guard is not live on the instance we talk to,
+  though**: all three wrong spellings still answer 200 there, and the
+  `system_prompt` probe ran with no system prompt at all and said nothing —
+  the silent drop, demonstrated. Committed and deployed are two more things
+  that should agree and here did not, which is the session's own lesson landing
+  on the check written to enforce it.
+
 - **An alarm-shaped claim deserves more scrutiny than a reassuring one, and
   both sides of this exchange proved it the hard way.** The `max_tokens` cap
   was relayed, checked here against the live schema, and withdrawn; the heylook

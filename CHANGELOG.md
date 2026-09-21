@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.2.0
+
+### Added
+
+- `src/qwenimage21_explorations/sage.py` and `QwenImage21SageAttention` --
+  routes 2.1's unmasked image attention through SageAttention's INT8-QK /
+  FP8-PV kernel, via ComfyUI's `optimized_attention_override`. The module
+  docstring is the owner document: what the model hands an override, why the
+  policy gates on the K length rather than Q, and what it declines.
+
+  The shape is favorable and was read rather than assumed: head_dim 128 is
+  sage's native size, and 2.1's image segments -- the references and the
+  target -- pass no mask. Only the short text segments carry one, and they are
+  declined by default. Installing the override leaves the prefix K/V cache on;
+  the model's `hooked` guard does not list it.
+
+  Two things it deliberately does not do, both stated in the docstring rather
+  than left to be discovered: it does not claim the memory saving the H3 pack's
+  forward patch gets, because an override cannot reach the caller's q/k/v, and
+  `auto` does not carry H3's rotated quantizer, which was graded on H3
+  captures and is ungraded here.
+
+  **No speed claim.** Nothing has run on a GPU. The A/B that would produce one
+  is named in the docstring.
+
+- `tests/test_sage.py` -- the routing policy and the override's reshape
+  contract, on stubbed kernels, with no CUDA context. Seven deliberate
+  mutations were run against it; the first pass caught that the mask branch
+  was dead (every masked case was also short, so deleting the branch left the
+  suite green) and that the head-major branch could not tell Q from K. Both
+  now have a test that decides them.
+
 ## 0.1.0
 
 First working harness for the Qwen-Image 2.1 prompt expanders, plus the
