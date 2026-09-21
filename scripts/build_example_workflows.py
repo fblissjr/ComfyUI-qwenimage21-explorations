@@ -28,6 +28,11 @@ UNET = "qwen_image_2.1_bf16.safetensors"
 CLIP = "qwen3vl_8b_bf16.safetensors"
 VAE = "qwen_image_2.1_vae_bf16.safetensors"
 HEYLOOK = "http://localhost:8080"
+#: Where a front end's saved results land. A subfolder keeps app output apart
+#: from whatever else writes to ComfyUI's output directory. Front ends default
+#: to a temp preview and only reach SaveImage when the user asks to keep one,
+#: so this is the prefix for the deliberate case.
+API_SAVE_PREFIX = "qwenimage_app_output/qwen_image_2.1"
 #: Mirrors the reference runner's per-image cap, which is also the node's default.
 #: Set it to 0 in a graph that sizes its references upstream -- docs/wiki/sizing.md.
 PE_MAX_PIXELS = 1024 * 1024
@@ -158,7 +163,7 @@ def common(g: Graph, *, edit: bool):
     return unet, cache, clip, vae
 
 
-def build(edit: bool, expander: bool = True) -> dict:
+def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_pe") -> dict:
     g = Graph()
     _, cache, clip, vae = common(g, edit=edit)
     g.add("MarkdownNote", (40, 600), [NOTE], size=(460, 420), title="Note: prompt expansion")
@@ -253,7 +258,7 @@ def build(edit: bool, expander: bool = True) -> dict:
     g.link((ks, 1), (dec, 0), "LATENT")
     g.link((vae, 0), (dec, 1), "VAE")
 
-    save = g.add("SaveImage", (2480, 40), ["qwen_image_2.1_pe"], size=(420, 460))
+    save = g.add("SaveImage", (2480, 40), [save_prefix], size=(420, 460))
     g.sock(save, "images", "IMAGE")
     g.out(save, "images", "IMAGE")     # an output node still declares one; the official graphs carry it
     g.link((dec, 0), (save, 0), "IMAGE")
@@ -396,7 +401,7 @@ def main() -> int:
         # nodes is re-authoring the graph, and these are snapshots.
         for name, edit, pe in (("qi21_t2i", False, False), ("qi21_t2i_pe", False, True),
                                ("qi21_edit", True, False), ("qi21_edit_pe", True, True)):
-            doc = build(edit, pe)
+            doc = build(edit, pe, save_prefix=API_SAVE_PREFIX)
             errs = validate(doc)
             for e in errs:
                 print(f"{name}: {e}", file=sys.stderr)
