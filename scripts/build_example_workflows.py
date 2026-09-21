@@ -34,14 +34,16 @@ HEYLOOK = "http://localhost:8080"
 #: so this is the prefix for the deliberate case.
 API_SAVE_PREFIX = "qwenimage_app_output/qwen_image_2.1"
 
-#: Steps, by mode. The official Comfy-Org graph uses one number for both;
-#: diffusers and LightX2V ship 40. A sweep of 16/20/25/30/40 on 2026-09-20, one
-#: scene each, found the answer differs by mode: edit with a reference barely
-#: moves across the whole range, while t2i is still moving at 20 and settles
-#: around 30. The templates are already separate files, so they need not agree.
-#: Reasoned from that sweep -- it is one scene per mode, judged by eye, and is
-#: not a measured optimum. docs/wiki/sampling.md, docs/wiki/decisions.md.
-STEPS = {"t2i": 30, "edit": 20}
+#: Steps, by mode. t2i keeps the official Comfy-Org figure; edit drops below it.
+#:
+#: A sweep of 16/20/25/30/40 on 2026-09-20, one scene each, found the answer
+#: differs by mode: edit with a reference barely moves across the whole range,
+#: while t2i is still moving at 20 and settles around 30. The asymmetry is the
+#: finding, and it is spent on edit rather than on t2i -- 30 was tried and the
+#: owner judged the extra steps not worth it over the official 25, which the
+#: sweep does not contradict, since "still moving" is not "better".
+#: docs/wiki/sampling.md, docs/wiki/decisions.md.
+STEPS = {"t2i": 25, "edit": 20}
 #: Mirrors the reference runner's per-image cap, which is also the node's default.
 #: Set it to 0 in a graph that sizes its references upstream -- docs/wiki/sizing.md.
 PE_MAX_PIXELS = 1024 * 1024

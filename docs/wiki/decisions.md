@@ -206,13 +206,15 @@ date heading is accurate, not an artifact of a young page.
   scale rather than detail improving. One scene per mode, one seed, judged by
   eye.
 
-  **Acted on 2026-09-20, by the owner: the templates now carry per-mode steps**,
-  t2i 30 and edit 20, in `scripts/build_example_workflows.py::STEPS`. The
-  templates are already separate files, so a single number was only ever a
-  compromise between two different needs. This is **reasoned from the sweep,
-  not measured as an optimum** — the evidence says edit has headroom to spare
-  and t2i does not settle until about 30, which is enough to stop shipping one
-  number for both and not enough to call either value best.
+  **Acted on 2026-09-20, by the owner: the templates carry per-mode steps**, in
+  `scripts/build_example_workflows.py::STEPS`. **t2i keeps the official 25 and
+  edit drops to 20.** t2i was briefly set to 30 — where the sweep says it
+  settles — and the owner reverted it as not worth the extra steps. That is a
+  fair reading of the evidence rather than a contradiction of it: "still
+  moving" is not "better", and the sweep measured where a sample stops changing,
+  not where it stops improving. So the asymmetry the sweep found is spent on
+  edit, which has headroom to give up, and not on t2i, which would only cost
+  more.
 
 - **The shipped graph now runs end to end in its current form, preset-driven.**
   Until this point the example graphs had been validated against the live
