@@ -55,12 +55,14 @@ date heading is accurate, not an artifact of a young page.
   assumed.** heylook added 422s naming the right spelling for three fields it
   used to drop in silence — `enable_thinking`, `max_new_tokens` and
   `system_prompt`. Our exact field set answers 200, so nothing here was on the
-  wrong side of it. **Their guard is not live on the instance we talk to,
-  though**: all three wrong spellings still answer 200 there, and the
-  `system_prompt` probe ran with no system prompt at all and said nothing —
-  the silent drop, demonstrated. Committed and deployed are two more things
-  that should agree and here did not, which is the session's own lesson landing
-  on the check written to enforce it.
+  wrong side of it. The guard was committed but not yet deployed when
+  first probed: all three wrong spellings answered 200, and the `system_prompt`
+  probe ran with **no system prompt at all** and said nothing — the silent
+  drop, demonstrated rather than described. Committed and deployed are two more
+  things that should agree, and briefly did not. **Re-checked after the server
+  was restarted at 2.0.50: our field set still answers 200 and all three
+  wrong spellings now answer 422 naming the right one**, so the guard is live
+  and this client is verified against it rather than against a reading of it.
 
 - **An alarm-shaped claim deserves more scrutiny than a reassuring one, and
   both sides of this exchange proved it the hard way.** The `max_tokens` cap
