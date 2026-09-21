@@ -36,13 +36,12 @@ API_SAVE_PREFIX = "qwenimage_app_output/qwen_image_2.1"
 
 #: Steps, by mode. t2i keeps the official Comfy-Org figure; edit drops below it.
 #:
-#: A sweep of 16/20/25/30/40 on 2026-09-20, one scene each, found the answer
-#: differs by mode: edit with a reference barely moves across the whole range,
-#: while t2i is still moving at 20 and settles around 30. The asymmetry is the
-#: finding, and it is spent on edit rather than on t2i -- 30 was tried and the
-#: owner judged the extra steps not worth it over the official 25, which the
-#: sweep does not contradict, since "still moving" is not "better".
-#: docs/wiki/sampling.md, docs/wiki/decisions.md.
+#: A sweep of 16/20/25/30/40 on 2026-09-20, one scene each, found edit with a
+#: reference barely moves across the whole range, which is what 20 rests on.
+#: Its t2i half is withdrawn (2026-09-20): those graphs sampled on the Sigmas
+#: node's misread of EmptyLatentImage's grid, so t2i's "still moving at 20" is
+#: unsupported until re-swept. t2i's 25 is the official figure and never
+#: rested on it. docs/wiki/sampling.md, docs/wiki/decisions.md.
 STEPS = {"t2i": 25, "edit": 20}
 #: Mirrors the reference runner's per-image cap, which is also the node's default.
 #: Set it to 0 in a graph that sizes its references upstream -- docs/wiki/sizing.md.
@@ -212,6 +211,14 @@ def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_
         g.sock(shown, "source", "*")
         g.out(shown, "STRING", "STRING")
         g.link((pe, 0), (shown, 0), "STRING")
+        if edit:
+            # The shape the answer chose, recorded so a run can be repeated
+            # without the expander: the plain edit graph takes it as widgets.
+            for slot, title, y in ((1, "wh_ratio", 860), (2, "ratio_follow", 980)):
+                rec = g.add("PreviewAny", (900, y), [], size=(420, 100), title=title)
+                g.sock(rec, "source", "*")
+                g.out(rec, "STRING", "STRING")
+                g.link((pe, slot), (rec, 0), "STRING")
 
     enc = g.add("TextEncodeQwenImage21", (1380, 40),
                 ["" if expander else brief, "", 1024], size=(420, 300))
@@ -264,20 +271,24 @@ def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_
     g.link((sampler, 0), (ks, 2), "SAMPLER")
     g.link((sig, 0), (ks, 3), "SIGMAS")
 
-    if pe is not None:
+    if pe is not None or edit:
         # The expander picks the shape and the canvas keeps the graph's area; an
         # answer with no shape leaves it on 1024x1024, or on the reference as the
         # encode node sized it, which is core's own edit latent -- canvas.py.
+        # Without an expander, edit still sizes through it: blank, it is that
+        # same latent, and a shape typed into it repeats an expanded run's canvas.
         canvas = g.add("QwenImage21Canvas", (1380, 400), ["", "", 1024, 1024, 1024], size=(320, 220))
-        g.sock(canvas, "wh_ratio", "STRING", widget=True)
-        g.sock(canvas, "ratio_follow", "STRING", widget=True, optional=True)
+        if pe is not None:
+            g.sock(canvas, "wh_ratio", "STRING", widget=True)
+            g.sock(canvas, "ratio_follow", "STRING", widget=True, optional=True)
+            g.link((pe, 1), (canvas, 0), "STRING")
+            if edit:
+                g.link((pe, 2), (canvas, 1), "STRING")
         g.out(canvas, "width", "INT")
         g.out(canvas, "height", "INT")
-        g.link((pe, 1), (canvas, 0), "STRING")
         if edit:
-            g.link((pe, 2), (canvas, 1), "STRING")
             g.sock(canvas, "images.image_1", "IMAGE", optional=True)
-            g.link((loader, 0), (canvas, 2), "IMAGE")
+            g.link((loader, 0), (canvas, len(canvas["inputs"]) - 1), "IMAGE")
         empty = g.add("EmptyLatentImage", (1380, 660), [1024, 1024, 1])
         g.sock(empty, "width", "INT", widget=True)
         g.sock(empty, "height", "INT", widget=True)
@@ -285,9 +296,6 @@ def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_
         g.link((canvas, 0), (empty, 0), "INT")
         g.link((canvas, 1), (empty, 1), "INT")
         src = (empty, 0)
-    elif edit:
-        # The node's own latent matches the reference; any other size shifts the edit.
-        src = (enc, 2)
     else:
         empty = g.add("EmptyLatentImage", (1380, 400), [1024, 1024, 1])
         g.out(empty, "LATENT", "LATENT")

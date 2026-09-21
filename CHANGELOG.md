@@ -50,8 +50,20 @@
   suite green) and that the head-major branch could not tell Q from K. Both
   now have a test that decides them.
 
+### Fixed
+
+- `QwenImage21Sigmas` read an `EmptyLatentImage` latent's 1/8 grid as given,
+  so every t2i graph sampled on a shift set for four times its canvas. It now
+  reads the 1/16 grid the sampler rescales that latent to. The t2i half of the
+  step sweep ran under it and is withdrawn in `docs/wiki/decisions.md`.
+
 ### Changed
 
+- The plain edit graph sizes its latent through `QwenImage21Canvas`, with the
+  shape as widgets: blank is the latent core's encode node emitted, verified
+  pixel-identical, and a ratio or `<imageN>` repeats an expander's canvas. The
+  expander edit graph records the answer's `wh_ratio` and `ratio_follow` in
+  two `PreviewAny` nodes.
 - `QwenImage21Canvas` sizes the latent from the expander's answer: `wh_ratio`
   as a new shape at the graph's area, `ratio_follow` as that reference at the
   size the encode node gave it, and neither as before. Both expander example

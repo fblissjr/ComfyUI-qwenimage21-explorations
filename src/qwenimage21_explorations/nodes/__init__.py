@@ -13,6 +13,7 @@ import logging
 import math
 import uuid
 
+import comfy.latent_formats
 import comfy.model_management
 import comfy.utils
 import node_helpers
@@ -311,7 +312,16 @@ class Sigmas(io.ComfyNode):
                 shift_terminal=sigmas_mod.SHIFT_TERMINAL,
                 base_seq_len=sigmas_mod.BASE_SEQ_LEN, max_seq_len=sigmas_mod.MAX_SEQ_LEN,
                 base_shift=sigmas_mod.BASE_SHIFT, max_shift=sigmas_mod.MAX_SHIFT) -> io.NodeOutput:
-        h, w = latent["samples"].shape[-2:]
+        samples = latent["samples"]
+        h, w = samples.shape[-2:]
+        # The sampler rescales an EMPTY latent from a generic node (EmptyLatentImage:
+        # 4 channels at 1/8) to 2.1's grid before it samples. Read that grid, the
+        # way comfy/sample.py::fix_empty_latent_channels computes it, or the shift
+        # is set for a canvas four times the area.
+        ratio = latent.get("downscale_ratio_spacial")
+        native = comfy.latent_formats.QwenImage21.spacial_downscale_ratio
+        if ratio is not None and ratio != native and torch.count_nonzero(samples) == 0:
+            h, w = round(h * (ratio / native)), round(w * (ratio / native))
         values = sigmas_mod.schedule(
             steps, int(h) * int(w), denoise=denoise,
             shift_terminal=shift_terminal or None, terminal_mode=terminal_mode,

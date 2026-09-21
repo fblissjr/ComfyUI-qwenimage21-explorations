@@ -35,11 +35,13 @@ one.** diffusers and LightX2V ship 40; the Comfy-Org graph ships 25. Nothing
 here establishes which is better, and the example graphs follow the official
 ComfyUI value because that is the graph they are modelled on.
 
-**What a sweep did establish is that the answer differs by mode.** Edit with a
-reference barely moves across 16 to 40; t2i moves several times more and is
-still moving at 20, settling around 30. So a single step default is a
-compromise between two different needs, and **the templates here now carry one
-value per mode** rather than the official graph's single figure —
+**What a sweep did establish is that edit with a reference barely moves across
+16 to 40.** Its t2i half is *withdrawn, 2026-09-20*: the t2i graphs sampled on
+a schedule set for four times their canvas (the Sigmas node read
+`EmptyLatentImage`'s grid raw, see [`decisions.md`](decisions.md)), so the
+claim that t2i was still moving at 20 is unsupported until re-swept. **The
+templates carry one value per mode** rather than the official graph's single
+figure —
 `scripts/build_example_workflows.py::STEPS` holds them, and the reasoning and
 its limits are in [`decisions.md`](decisions.md). Conditions and the caveats are in
 [`decisions.md`](decisions.md); re-derive with `scripts/sigma_schedule.py` for

@@ -158,6 +158,32 @@ date heading is accurate, not an artifact of a young page.
   decoded at 1248x832, and an edit answer of `7:3` over a 1024x1024 reference
   at 1568x672 -- each what `canvas.py::choose` predicts for that answer.
 
+- **Corrected: the Sigmas node set t2i's shift for four times the canvas.**
+  `EmptyLatentImage` emits 4 channels at 1/8 and tags the latent with that
+  ratio; the sampler rescales an empty latent to 2.1's 64 channels at 1/16
+  before sampling (`comfy/sample.py::fix_empty_latent_channels`). The Sigmas
+  node read the shape it was handed, so every graph that fed it
+  `EmptyLatentImage` -- every t2i graph since the node went in, and the
+  expander edit graph from the canvas commit on -- computed mu from a grid
+  with four times the tokens it sampled. Edit graphs fed by the encode node's
+  own latent were never affected. The node now reads the grid the sampler
+  samples, the same way core computes it (`tests/test_sigmas_node.py`);
+  `scripts/sigma_schedule.py` shows the two schedules for any canvas.
+
+  *Found by a control, not by inspection.* Moving plain edit's latent from the
+  encode node to the canvas node should have changed nothing, since both are
+  zeros at the same size; a same-seed run of old and new graphs came back
+  **different**. After the fix the same pair is pixel-identical, 2026-09-20,
+  one reference, seed 424242.
+
+- **Plain edit sizes through the canvas node too, so an expanded edit can be
+  repeated without the expander** (the owner). Its shape fields are widgets
+  there: blank is the first reference as the encode node sized it -- the
+  latent core's node emitted, which the control above showed pixel-identical
+  -- and a ratio or `<imageN>` repeats what an expander answered. The expander
+  edit graph records its answer's `wh_ratio` and `ratio_follow` in two
+  `PreviewAny` nodes so a client can carry the shape across.
+
 - **The client's field spellings are verified against the live server, not
   assumed.** heylook added 422s naming the right spelling for three fields it
   used to drop in silence — `enable_thinking`, `max_new_tokens` and
@@ -260,6 +286,13 @@ date heading is accurate, not an artifact of a young page.
   judgement, and looking at the t2i pair the gap is mostly the subject shifting
   scale rather than detail improving. One scene per mode, one seed, judged by
   eye.
+
+  *Withdrawn in part, 2026-09-20:* the t2i half ran through `EmptyLatentImage`
+  into the Sigmas node, which read that latent's grid raw and so set the shift
+  for four times the canvas (the entry on the Sigmas grid, below). Everything
+  said here about t2i -- how far it moves, where it settles -- is unsupported
+  until re-swept. The edit half used the encode node's native latent and
+  stands.
 
   **Acted on 2026-09-20, by the owner: the templates carry per-mode steps**, in
   `scripts/build_example_workflows.py::STEPS`. **t2i keeps the official 25 and
