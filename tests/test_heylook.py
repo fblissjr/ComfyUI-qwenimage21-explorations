@@ -232,3 +232,31 @@ def test_an_error_carries_the_server_s_explanation(monkeypatch):
         heylook.generate(base_url="http://h", model="m", system="s", brief="b",
                          temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
                          presence_penalty=0.0, max_tokens=8)
+
+
+def _expand_with(nodes, monkeypatch, **kwargs):
+    """What the expander node sends, with the server stubbed out."""
+    sent = {}
+
+    def fake_generate(**kw):
+        sent.update(kw)
+        return heylook.Response("", '{"rewritten_prompt": "x"}', "end_turn", 0, 0)
+
+    monkeypatch.setattr(nodes.heylook, "generate", fake_generate)
+    monkeypatch.setattr(nodes.heylook, "list_presets", lambda base_url: PRESETS)
+    nodes.PEExpand.execute("t2i", "http://h", kwargs.pop("model", ""), "reference", "a brief", **kwargs)
+    return sent
+
+
+def test_a_typed_reasoning_effort_is_sent(nodes, monkeypatch):
+    assert _expand_with(nodes, monkeypatch, reasoning_effort=" low ")["extra"] == {"reasoning_effort": "low"}
+
+
+def test_a_blank_reasoning_effort_sends_nothing(nodes, monkeypatch):
+    """Absent lets the model's template decide; a wrong word for the model is a 500."""
+    assert _expand_with(nodes, monkeypatch)["extra"] is None
+
+
+def test_a_chosen_model_is_sent_in_place_of_the_task_default(nodes, monkeypatch):
+    assert _expand_with(nodes, monkeypatch)["model"] == nodes.HEYLOOK_MODELS["t2i"]
+    assert _expand_with(nodes, monkeypatch, model="some-other-model")["model"] == "some-other-model"

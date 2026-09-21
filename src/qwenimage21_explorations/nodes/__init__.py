@@ -467,6 +467,13 @@ class PEExpand(io.ComfyNode):
                                  "is what you want when they were already sized upstream -- otherwise a "
                                  "fraction-of-a-percent overshoot costs a pointless resample."
                              )),
+                io.String.Input("reasoning_effort", default="", optional=True,
+                                tooltip=(
+                                    "How much the model reasons, for a model whose /v1/models row lists "
+                                    "the reasoning_effort capability. The words are the model's own and a "
+                                    "wrong one is a server error. Blank sends none, which leaves it to the "
+                                    "preset and then to the model. Set, it beats the preset's."
+                                )),
                 io.Autogrow.Input(
                     "images",
                     template=io.Autogrow.TemplateNames(
@@ -492,7 +499,7 @@ class PEExpand(io.ComfyNode):
     @classmethod
     def execute(cls, task, base_url, model, sampling, brief, preset="", checkpoint_dir="",
                 local_template="(none)", system_override="", thinking=True, timeout=900,
-                max_pixels=heylook.DEFAULT_MAX_PIXELS,
+                max_pixels=heylook.DEFAULT_MAX_PIXELS, reasoning_effort="",
                 images: io.Autogrow.Type = None) -> io.NodeOutput:
         preset_fields, preset_system = {}, ""
         if preset.strip():
@@ -516,6 +523,8 @@ class PEExpand(io.ComfyNode):
         frames = _autogrow_images(images)
         profile, extra = with_preset((GREEDY if sampling == "greedy" else PROFILES)[task], preset_fields)
         thinking = profile.pop("thinking", thinking)
+        if reasoning_effort.strip():
+            extra["reasoning_effort"] = reasoning_effort.strip()
         resp = heylook.generate(
             base_url=base_url,
             model=model.strip() or HEYLOOK_MODELS[task],

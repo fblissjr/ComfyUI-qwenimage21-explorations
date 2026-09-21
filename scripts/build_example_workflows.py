@@ -66,7 +66,7 @@ WIDGETS = {
     "VAEDecode": [],
     "QwenImage21PEExpand": ["task", "base_url", "model", "sampling", "brief", "preset",
                             "checkpoint_dir", "local_template", "system_override", "thinking",
-                            "timeout", "max_pixels"],
+                            "timeout", "max_pixels", "reasoning_effort"],
     "QwenImage21Canvas": ["wh_ratio", "ratio_follow", "width", "height", "resolution"],
     "PreviewAny": [],
     "MarkdownNote": ["text"],
@@ -196,7 +196,7 @@ def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_
     if expander:
         pe = g.add("QwenImage21PEExpand", (900, 40),
                    ["edit" if edit else "t2i", HEYLOOK, "", "reference", brief, "", "",
-                    "(none)", "", True, 900, PE_MAX_PIXELS], size=(420, 500))
+                    "(none)", "", True, 900, PE_MAX_PIXELS, ""], size=(420, 500))
         if edit:
             g.sock(pe, "images.image_1", "IMAGE", optional=True)
             g.link((loader, 0), (pe, 0), "IMAGE")

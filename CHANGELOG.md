@@ -4,6 +4,16 @@
 
 ### Added
 
+- `QwenImage21PEExpand` takes a `reasoning_effort`, for a served model whose
+  `/v1/models` row lists that capability. Blank sends nothing, which leaves it
+  to the preset and then to the model's own template; set, it beats the
+  preset's. It is a string and not a combo because the vocabulary is the
+  model's and the server validates only the union. Appended after `max_pixels`
+  so a saved graph's positional widget values still line up. With the existing
+  `model` input this is what pointing the expander at a model other than the
+  two trained ones needs; `tests/test_heylook.py` pins both through a stubbed
+  server. The example workflows are regenerated with the new widget.
+
 - `src/qwenimage21_explorations/sage.py` and `QwenImage21SageAttention` --
   routes 2.1's unmasked image attention through SageAttention's INT8-QK /
   FP8-PV kernel, via ComfyUI's `optimized_attention_override`. The module
