@@ -36,7 +36,12 @@ WIDGETS = {
     "VAELoader": ["vae_name"],
     "QwenImage21Cache": ["device", "dtype"],
     "EmptyLatentImage": ["width", "height", "batch_size"],
-    "KSampler": ["seed", "control_after_generate", "steps", "cfg", "sampler_name", "scheduler", "denoise"],
+    "RandomNoise": ["noise_seed", "control_after_generate"],
+    "CFGGuider": ["cfg"],
+    "KSamplerSelect": ["sampler_name"],
+    "SamplerCustomAdvanced": [],
+    "QwenImage21Sigmas": ["steps", "denoise", "terminal_mode", "shift_terminal",
+                          "base_seq_len", "max_seq_len", "base_shift", "max_shift"],
     "TextEncodeQwenImage21": ["prompt", "negative_prompt", "resolution"],
     "LoadImage": ["image", "upload"],
     "SaveImage": ["filename_prefix"],
@@ -174,28 +179,53 @@ def build(edit: bool) -> dict:
         g.link((vae, 0), (enc, 2), "VAE")
     g.link((pe, 0), (enc, enc["inputs"].index(next(i for i in enc["inputs"] if i["name"] == "prompt"))), "STRING")
 
-    ks = g.add("KSampler", (1860, 40), [0, "randomize", 25, 1, "euler", "simple", 1], size=(320, 280))
-    for name, type_ in (("model", "MODEL"), ("positive", "CONDITIONING"),
-                        ("negative", "CONDITIONING"), ("latent_image", "LATENT")):
+    # SamplerCustomAdvanced rather than KSampler, because KSampler builds its own
+    # sigmas and core's schedule for 2.1 is wrong in two ways -- docs/wiki/sampling.md.
+    noise = g.add("RandomNoise", (1860, 40), [0, "randomize"], size=(300, 80))
+    g.out(noise, "NOISE", "NOISE")
+    guider = g.add("CFGGuider", (1860, 170), [1.0], size=(300, 120))
+    for name, type_ in (("model", "MODEL"), ("positive", "CONDITIONING"), ("negative", "CONDITIONING")):
+        g.sock(guider, name, type_)
+    g.out(guider, "GUIDER", "GUIDER")
+    g.link((cache, 0), (guider, 0), "MODEL")
+    g.link((enc, 0), (guider, 1), "CONDITIONING")
+    g.link((enc, 1), (guider, 2), "CONDITIONING")
+
+    sampler = g.add("KSamplerSelect", (1860, 330), ["euler"], size=(300, 60))
+    g.out(sampler, "SAMPLER", "SAMPLER")
+
+    sig = g.add("QwenImage21Sigmas", (1860, 430),
+                [25, 1.0, "release", 0.02, 256, 8192, 0.5, 0.9], size=(320, 240))
+    g.sock(sig, "latent", "LATENT")
+    g.out(sig, "SIGMAS", "SIGMAS")
+
+    ks = g.add("SamplerCustomAdvanced", (2220, 40), [], size=(320, 160))
+    for name, type_ in (("noise", "NOISE"), ("guider", "GUIDER"),
+                        ("sampler", "SAMPLER"), ("sigmas", "SIGMAS"), ("latent_image", "LATENT")):
         g.sock(ks, name, type_)
-    g.out(ks, "LATENT", "LATENT")
-    g.link((cache, 0), (ks, 0), "MODEL")
-    g.link((enc, 0), (ks, 1), "CONDITIONING")
-    g.link((enc, 1), (ks, 2), "CONDITIONING")
+    g.out(ks, "output", "LATENT")
+    g.out(ks, "denoised_output", "LATENT")
+    g.link((noise, 0), (ks, 0), "NOISE")
+    g.link((guider, 0), (ks, 1), "GUIDER")
+    g.link((sampler, 0), (ks, 2), "SAMPLER")
+    g.link((sig, 0), (ks, 3), "SIGMAS")
 
     if edit:
-        # The node's own latent matches the reference, and any other size shifts the edit.
-        g.link((enc, 2), (ks, 3), "LATENT")
+        # The node's own latent matches the reference; any other size shifts the edit.
+        src = (enc, 2)
     else:
         empty = g.add("EmptyLatentImage", (1380, 400), [1024, 1024, 1])
         g.out(empty, "LATENT", "LATENT")
-        g.link((empty, 0), (ks, 3), "LATENT")
+        src = (empty, 0)
+    # One latent feeds both: the schedule's shift cannot disagree with what is sampled.
+    g.link(src, (ks, 4), "LATENT")
+    g.link(src, (sig, 0), "LATENT")
 
     dec = g.add("VAEDecode", (2220, 40), [])
     g.sock(dec, "samples", "LATENT")
     g.sock(dec, "vae", "VAE")
     g.out(dec, "IMAGE", "IMAGE")
-    g.link((ks, 0), (dec, 0), "LATENT")
+    g.link((ks, 1), (dec, 0), "LATENT")
     g.link((vae, 0), (dec, 1), "VAE")
 
     save = g.add("SaveImage", (2480, 40), ["qwen_image_2.1_pe"], size=(420, 460))
@@ -233,7 +263,12 @@ def validate(doc: dict) -> list[str]:
     return errs
 
 
-SOCKETS = {"MODEL", "CLIP", "VAE", "IMAGE", "MASK", "LATENT", "CONDITIONING"}
+#: Only these render as widgets; a combo (a list of options) does too. Everything
+#: else is a link-only socket. A whitelist, because the socket types are open-ended
+#: -- NOISE, GUIDER, SAMPLER and SIGMAS all arrived this way.
+#: "COMBO" is the V3 spelling; a bare list of options is the legacy one, and
+#: both are live in the same /object_info.
+WIDGET_TYPES = {"INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"}
 
 
 def check_against_server(doc: dict, base_url: str) -> list[str]:
@@ -260,7 +295,7 @@ def check_against_server(doc: dict, base_url: str) -> list[str]:
                 allowed.add(name)
                 typ = val[0] if isinstance(val, (list, tuple)) and val else val
                 opts = val[1] if isinstance(val, (list, tuple)) and len(val) > 1 else {}
-                if typ == "COMFY_AUTOGROW_V3" or (isinstance(typ, str) and typ in SOCKETS):
+                if not (isinstance(typ, list) or typ in WIDGET_TYPES):
                     continue
                 widgets.append(name)
                 # Some inputs render a second widget beside themselves: a seed's

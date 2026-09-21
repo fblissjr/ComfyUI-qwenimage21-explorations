@@ -70,8 +70,24 @@ declaring different ones is served by the same node. The arithmetic is
 `src/qwenimage21_explorations/sigmas.py`, importable and tested without
 ComfyUI.
 
-Setting `shift_terminal` to zero reproduces core's behaviour on that axis,
-which is what makes the node usable as an A/B rather than only as a fix.
+`terminal_mode` selects how the schedule ends, so the ordering is a stated
+choice rather than something a reader has to get right:
+
+| mode | what it does | whose behaviour |
+|---|---|---|
+| `release` | stretch the curve, then end at zero | the checkpoint's |
+| `off` | no stretch | core's |
+| `stop_short` | the schedule **ends at the terminal** and never reaches zero, so the sampler leaves that much noise | nobody's — off-distribution |
+
+`stop_short` is exactly what applying the stretch after the trailing zero
+produces. It is offered as a named mode because it is worth being able to see,
+and because naming it is what stops it happening by accident.
+
+**And the accident is guarded, not merely tested.**
+`sigmas.stretch_to_terminal` raises on a curve that already ends at zero, so
+the wrong order fails loudly at the one place it could be written. The test
+suite pins the modes apart as well, but the precondition is what makes the
+mistake unwriteable.
 
 ### The stock node can do the dynamic half, but on a coincidence
 
@@ -91,10 +107,15 @@ only to sanity-check the node above against stock machinery.
 An earlier draft of this page said `shift_terminal` "cannot" be done in
 ComfyUI. That was wrong. **No stock node does it**, which is the true claim;
 the transform itself is three lines on the sigma vector, and nothing about
-ComfyUI's sampler prevents it. The ordering is the only subtlety, and
-`sigmas.py` carries it: stretch the computed sigmas, *then* append the zero.
-Stretch after appending and the scale factor is one, so the code looks
-implemented and does nothing.
+ComfyUI's sampler prevents it.
+
+**A second correction, to the failure mode.** That draft also said stretching
+after the zero was appended "changes nothing". It changes quite a lot: the
+trailing zero is itself stretched to the terminal, so the schedule never
+reaches zero and **the sampler stops with that much noise still in the image**.
+It is a visible defect rather than a silent one, which is better, but it is not
+a no-op. `scripts/sigma_schedule.py` and `tests/test_sigmas.py` both carry the
+real numbers.
 
 ## 5. Tying the schedule to something else
 

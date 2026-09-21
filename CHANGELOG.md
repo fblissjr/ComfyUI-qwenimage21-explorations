@@ -51,9 +51,16 @@ research that shaped it.
 - `QwenImage21Sigmas` — the schedule the checkpoint's scheduler config asks
   for: dynamic shift read from the latent's own shape, plus the terminal
   stretch core has no equivalent for. Emits `SIGMAS` for
-  `SamplerCustomAdvanced`; `shift_terminal` at zero reproduces core on that
-  axis, so it is an A/B and not only a fix. Arithmetic in
+  `SamplerCustomAdvanced`. `terminal_mode` names how the schedule ends —
+  `release` (the checkpoint's), `off` (core's), `stop_short` (ends at the
+  terminal, never reaching zero) — so the ordering is a choice rather than
+  something to get right silently, and `stretch_to_terminal` raises on a curve
+  that already ends at zero. Arithmetic in
   `src/qwenimage21_explorations/sigmas.py`, importable without ComfyUI.
+- The example graphs now sample through `SamplerCustomAdvanced` with that node,
+  because `KSampler` builds its own sigmas. One latent feeds both the sampler
+  and the schedule, so the shift cannot be computed for a different canvas than
+  the one being sampled.
 - `docs/wiki/sampling.md` and `scripts/sigma_schedule.py` — the sigma schedule:
   what the release's scheduler config asks for, what each implementation does,
   and ComfyUI's two departures (a constant shift where the release asks for a

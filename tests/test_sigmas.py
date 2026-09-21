@@ -100,3 +100,37 @@ def test_overrides_reach_the_maths():
     a = S.dynamic_mu(4096)
     b = S.dynamic_mu(4096, max_seq_len=4096, max_shift=1.15)
     assert a != pytest.approx(b)
+
+
+def test_the_three_terminal_modes_are_distinct():
+    seq = tokens(1024, 1024)
+    out = {m: S.schedule(25, seq, terminal_mode=m) for m in S.TERMINAL_MODES}
+    assert out["release"][-1] == 0.0 and out["release"][-2] == pytest.approx(S.SHIFT_TERMINAL)
+    assert out["off"][-1] == 0.0 and out["off"][-2] != pytest.approx(S.SHIFT_TERMINAL)
+    # stop_short never reaches zero: the sampler stops with that much noise left.
+    assert out["stop_short"][-1] == pytest.approx(S.SHIFT_TERMINAL)
+    assert all(x > 0.0 for x in out["stop_short"])
+
+
+def test_stop_short_is_what_the_reversed_order_produces():
+    """Named as a choice so it cannot happen by accident -- and it is not a no-op."""
+    seq = tokens(1024, 1024)
+    curve = S.schedule(25, seq, terminal_mode="off")          # curve + trailing zero
+    scale = (1.0 - curve[-1]) / (1.0 - S.SHIFT_TERMINAL)      # stretching that, zero included
+    reversed_order = [1.0 - (1.0 - x) / scale for x in curve]
+    assert S.schedule(25, seq, terminal_mode="stop_short") == pytest.approx(reversed_order)
+
+
+def test_stretch_refuses_a_curve_that_already_ends_at_zero():
+    """The guard that makes the ordering mistake impossible rather than detectable."""
+    with pytest.raises(ValueError, match="before the trailing zero"):
+        S.stretch_to_terminal([1.0, 0.5, 0.0], S.SHIFT_TERMINAL)
+
+
+def test_stretch_leaves_a_single_point_curve_alone():
+    assert S.stretch_to_terminal([1.0], S.SHIFT_TERMINAL) == [1.0]
+
+
+def test_unknown_terminal_mode_is_rejected():
+    with pytest.raises(ValueError, match="terminal_mode"):
+        S.schedule(25, tokens(1024, 1024), terminal_mode="stretch_after")

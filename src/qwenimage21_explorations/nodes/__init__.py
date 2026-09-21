@@ -283,9 +283,17 @@ class Sigmas(io.ComfyNode):
                 io.Int.Input("steps", default=25, min=1, max=10000),
                 io.Float.Input("denoise", default=1.0, min=0.0, max=1.0, step=0.01,
                                tooltip="Follows core's BasicScheduler: keeps the tail of a longer schedule."),
+                io.Combo.Input("terminal_mode", options=list(sigmas_mod.TERMINAL_MODES),
+                               default="release", optional=True,
+                               tooltip=(
+                                   "release: stretch the curve, then end at zero -- what the checkpoint asks for. "
+                                   "off: no stretch, which is what core does. "
+                                   "stop_short: the schedule ENDS at shift_terminal and never reaches zero, so the "
+                                   "sampler leaves that much noise. Off-distribution."
+                               )),
                 io.Float.Input("shift_terminal", default=sigmas_mod.SHIFT_TERMINAL,
                                min=0.0, max=1.0, step=0.001, optional=True,
-                               tooltip="The checkpoint's value. 0 disables the stretch, which is what core does."),
+                               tooltip="The checkpoint's value. 0 disables the stretch whatever the mode."),
                 io.Int.Input("base_seq_len", default=sigmas_mod.BASE_SEQ_LEN, min=1, max=1 << 20, optional=True),
                 io.Int.Input("max_seq_len", default=sigmas_mod.MAX_SEQ_LEN, min=1, max=1 << 20, optional=True),
                 io.Float.Input("base_shift", default=sigmas_mod.BASE_SHIFT, min=0.0, max=100.0, step=0.01, optional=True),
@@ -295,13 +303,14 @@ class Sigmas(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, latent, steps, denoise=1.0, shift_terminal=sigmas_mod.SHIFT_TERMINAL,
+    def execute(cls, latent, steps, denoise=1.0, terminal_mode="release",
+                shift_terminal=sigmas_mod.SHIFT_TERMINAL,
                 base_seq_len=sigmas_mod.BASE_SEQ_LEN, max_seq_len=sigmas_mod.MAX_SEQ_LEN,
                 base_shift=sigmas_mod.BASE_SHIFT, max_shift=sigmas_mod.MAX_SHIFT) -> io.NodeOutput:
         h, w = latent["samples"].shape[-2:]
         values = sigmas_mod.schedule(
             steps, int(h) * int(w), denoise=denoise,
-            shift_terminal=shift_terminal or None,
+            shift_terminal=shift_terminal or None, terminal_mode=terminal_mode,
             base_seq_len=base_seq_len, max_seq_len=max_seq_len,
             base_shift=base_shift, max_shift=max_shift,
         )

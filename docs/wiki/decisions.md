@@ -52,10 +52,14 @@ date heading is accurate, not an artifact of a young page.
   handed, so it cannot disagree with the sampler. [`sampling.md`](sampling.md).
 - **Corrected the same day: `shift_terminal` was described as impossible in
   ComfyUI.** It is not. No *stock* node does it, and nothing prevents one from
-  doing it — the transform is three lines on the sigma vector. The only
-  subtlety is ordering: stretch the computed sigmas and then append the zero,
-  because doing it the other way leaves the scale factor at one and silently
-  changes nothing. Pinned by `tests/test_sigmas.py`.
+  doing it — the transform is three lines on the sigma vector. *Corrected
+  again the same day:* that entry described the wrong ordering as changing
+  nothing, and it does not. Stretching after the trailing zero is appended
+  stretches the zero too, so the schedule ends at the terminal and the sampler
+  stops with that much noise left in the image. It is now a named mode
+  (`stop_short`) beside `release` and `off`, and `stretch_to_terminal` raises
+  on a curve that already ends at zero — so the accident is prevented at the
+  one place it could be written, not just detected afterwards.
 
 - **The structured encode node reproduces core's exactly, verified on a
   render rather than argued.** Same seed, same fixed prompt, same reference

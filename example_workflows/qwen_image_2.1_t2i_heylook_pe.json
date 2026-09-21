@@ -1,8 +1,8 @@
 {
   "id": "00000000-0000-0000-0000-000000000000",
   "revision": 0,
-  "last_node_id": 11,
-  "last_link_id": 10,
+  "last_node_id": 15,
+  "last_link_id": 15,
   "nodes": [
     {
       "id": 1,
@@ -128,7 +128,7 @@
           "name": "VAE",
           "type": "VAE",
           "links": [
-            9
+            14
           ]
         }
       ],
@@ -300,17 +300,49 @@
     },
     {
       "id": 8,
-      "type": "KSampler",
+      "type": "RandomNoise",
       "pos": [
         1860,
         40
       ],
       "size": [
-        320,
-        280
+        300,
+        80
       ],
       "flags": {},
       "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "NOISE",
+          "type": "NOISE",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "RandomNoise"
+      },
+      "widgets_values": [
+        0,
+        "randomize"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "CFGGuider",
+      "pos": [
+        1860,
+        170
+      ],
+      "size": [
+        300,
+        120
+      ],
+      "flags": {},
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -330,38 +362,167 @@
           "name": "negative",
           "type": "CONDITIONING",
           "link": 6
-        },
-        {
-          "localized_name": "latent_image",
-          "name": "latent_image",
-          "type": "LATENT",
-          "link": 7
         }
       ],
       "outputs": [
         {
-          "name": "LATENT",
-          "type": "LATENT",
+          "name": "GUIDER",
+          "type": "GUIDER",
           "links": [
             8
           ]
         }
       ],
       "properties": {
-        "Node name for S&R": "KSampler"
+        "Node name for S&R": "CFGGuider"
       },
       "widgets_values": [
-        0,
-        "randomize",
-        25,
-        1,
-        "euler",
-        "simple",
-        1
+        1.0
       ]
     },
     {
-      "id": 9,
+      "id": 10,
+      "type": "KSamplerSelect",
+      "pos": [
+        1860,
+        330
+      ],
+      "size": [
+        300,
+        60
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSamplerSelect"
+      },
+      "widgets_values": [
+        "euler"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "QwenImage21Sigmas",
+      "pos": [
+        1860,
+        430
+      ],
+      "size": [
+        320,
+        240
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "latent",
+          "name": "latent",
+          "type": "LATENT",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "links": [
+            10
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "QwenImage21Sigmas"
+      },
+      "widgets_values": [
+        25,
+        1.0,
+        "release",
+        0.02,
+        256,
+        8192,
+        0.5,
+        0.9
+      ]
+    },
+    {
+      "id": 12,
+      "type": "SamplerCustomAdvanced",
+      "pos": [
+        2220,
+        40
+      ],
+      "size": [
+        320,
+        160
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "localized_name": "noise",
+          "name": "noise",
+          "type": "NOISE",
+          "link": 7
+        },
+        {
+          "localized_name": "guider",
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 8
+        },
+        {
+          "localized_name": "sampler",
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 9
+        },
+        {
+          "localized_name": "sigmas",
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 10
+        },
+        {
+          "localized_name": "latent_image",
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": []
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SamplerCustomAdvanced"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 13,
       "type": "EmptyLatentImage",
       "pos": [
         1380,
@@ -372,7 +533,7 @@
         120
       ],
       "flags": {},
-      "order": 8,
+      "order": 12,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -380,7 +541,8 @@
           "name": "LATENT",
           "type": "LATENT",
           "links": [
-            7
+            11,
+            12
           ]
         }
       ],
@@ -394,7 +556,7 @@
       ]
     },
     {
-      "id": 10,
+      "id": 14,
       "type": "VAEDecode",
       "pos": [
         2220,
@@ -405,20 +567,20 @@
         120
       ],
       "flags": {},
-      "order": 9,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
           "localized_name": "samples",
           "name": "samples",
           "type": "LATENT",
-          "link": 8
+          "link": 13
         },
         {
           "localized_name": "vae",
           "name": "vae",
           "type": "VAE",
-          "link": 9
+          "link": 14
         }
       ],
       "outputs": [
@@ -426,7 +588,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            10
+            15
           ]
         }
       ],
@@ -436,7 +598,7 @@
       "widgets_values": []
     },
     {
-      "id": 11,
+      "id": 15,
       "type": "SaveImage",
       "pos": [
         2480,
@@ -447,14 +609,14 @@
         460
       ],
       "flags": {},
-      "order": 10,
+      "order": 14,
       "mode": 0,
       "inputs": [
         {
           "localized_name": "images",
           "name": "images",
           "type": "IMAGE",
-          "link": 10
+          "link": 15
         }
       ],
       "outputs": [],
@@ -495,7 +657,7 @@
       4,
       2,
       0,
-      8,
+      9,
       0,
       "MODEL"
     ],
@@ -503,7 +665,7 @@
       5,
       7,
       0,
-      8,
+      9,
       1,
       "CONDITIONING"
     ],
@@ -511,39 +673,79 @@
       6,
       7,
       1,
-      8,
+      9,
       2,
       "CONDITIONING"
     ],
     [
       7,
-      9,
-      0,
       8,
-      3,
-      "LATENT"
+      0,
+      12,
+      0,
+      "NOISE"
     ],
     [
       8,
-      8,
+      9,
       0,
+      12,
+      1,
+      "GUIDER"
+    ],
+    [
+      9,
       10,
       0,
+      12,
+      2,
+      "SAMPLER"
+    ],
+    [
+      10,
+      11,
+      0,
+      12,
+      3,
+      "SIGMAS"
+    ],
+    [
+      11,
+      13,
+      0,
+      12,
+      4,
       "LATENT"
     ],
     [
-      9,
+      12,
+      13,
+      0,
+      11,
+      0,
+      "LATENT"
+    ],
+    [
+      13,
+      12,
+      1,
+      14,
+      0,
+      "LATENT"
+    ],
+    [
+      14,
       4,
       0,
-      10,
+      14,
       1,
       "VAE"
     ],
     [
-      10,
-      10,
+      15,
+      14,
       0,
-      11,
+      15,
       0,
       "IMAGE"
     ]
