@@ -251,10 +251,19 @@ def _last_kernel():
 def build_masked_kernel():
     """The kernel masked calls go to, whatever `sage_mode` asks for.
 
-    Not a choice between kernels -- the fp8 path's general-mask handling is
-    measurably wrong (see the module docstring), so this is the only correct
-    one. Returned separately rather than folded into `build_kernel` so the mode
-    widget cannot select its way around it.
+    This used to be a safety rail: until 2026-09-20 the fp8 path's general-mask
+    handling was wrong, so letting the mode widget reach it would have been
+    letting someone select a broken kernel. That kernel is fixed, so this is
+    now a preference rather than a rail -- but the preference is backed both
+    ways. Triton skips a K block that is entirely masked and the CUDA kernel
+    has no equivalent, so it is faster at every masked shape measured, and it
+    quantizes PV to fp16 rather than fp8, so it is also the more accurate arm.
+    Measurements: the sage fork's `tests/bench/masked_kernel_survey/`.
+
+    Still not exposed on the mode widget, and that is the judgement call to
+    revisit if anyone wants to A/B the two masked kernels: the node list is
+    append-only, so a widget added here is permanent, and nothing measured so
+    far argues for the other side.
     """
     import sageattention as sa
 
