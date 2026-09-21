@@ -35,18 +35,24 @@ Sage the unmasked large-KV calls, decline everything else to whatever was
 already handling it. That is the target image segment on the block-causal path
 and the single call per block on the cached path -- the two that carry the
 work. The masked text segments are declined by default, and when `sage_masked` opts
-them in they go to a different kernel than everything else. **The sm89 fp8++
-kernel's general-mask path is wrong**: measured on this box 2026-09-20, it
-applies `attn_mask` only to the final 128 key columns and silently ignores the
-mask everywhere before that. A suffix mask inside that window looks correct,
-which is most of why this was not noticed; a causal mask is not, and 2.1's text
-segments are causal. `sageattn_qk_int8_pv_fp16_triton` is exact on the same
-input, so masked calls go there. Repro and the per-block characterization are
-in the sage fork under `tests/repros/`.
+them in they go to `sageattn_qk_int8_pv_fp16_triton` rather than to whatever
+`sage_mode` names. That started as a correctness guard: the sm89 fp8++ kernel
+applied `attn_mask` to its last two K blocks only, which a causal mask -- what
+2.1's text segments carry -- falls outside of. **That kernel was fixed on
+2026-09-20** (the sage fork's `tests/repros/repro_fp8_mask_window.py` is the
+gate), so the routing now stands on a different reason and a weaker one:
+Triton skips a K block that is entirely masked and the CUDA kernel has no
+equivalent, so at every masked shape measured Triton is both faster and more
+accurate. The other CUDA kernels -- `fp8_cuda` (fp32+fp32), `fp16_cuda`, sm80
+-- still drop a mask whole; only the fp8++ variant ever implemented one. The
+naming trap survives the fix: fp16 *triton* serves a mask, fp16 *cuda* does
+not.
 
-**Gate on the K length, never on Q.** On the cached path Q is the target rows
-while K is the whole sequence, so a Q-derived length reads small for the single
-most expensive call in the model and a sensible threshold would skip it.
+**`sage_masked` still buys coverage, not speed.** At the text segments' shape
+torch SDPA beats both, and those segments are short either way; leaving them on
+ComfyUI's default is correct and the quicker arm. The opt-in exists to put
+every call on one kernel when that is what you are testing. Matrix and timings:
+the sage fork's `tests/bench/masked_kernel_survey/`.
 
 ## Two things this deliberately does not do
 

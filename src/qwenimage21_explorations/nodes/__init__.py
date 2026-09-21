@@ -525,10 +525,10 @@ class SageAttention(io.ComfyNode):
                                )),
                 io.Boolean.Input("sage_masked", default=False, optional=True,
                                  tooltip=(
-                                   "Also route the masked text segments, to the triton kernel -- "
-                                   "the only one that serves a mask correctly. Coverage, not "
-                                   "speed: at those segments' shape ComfyUI's default is both "
-                                   "correct and faster, so off is the better default."
+                                   "Also route the masked text segments, to the triton kernel, "
+                                   "which is faster and more accurate than the CUDA one on masks. "
+                                   "Coverage, not speed: at those segments' shape ComfyUI's "
+                                   "default beats both, so off is the better default."
                                )),
                 io.Boolean.Input("verbose", default=True, optional=True,
                                  tooltip="Log one line per distinct shape, naming the kernel that ran."),
