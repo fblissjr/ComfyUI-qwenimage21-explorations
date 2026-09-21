@@ -43,6 +43,25 @@ date heading is accurate, not an artifact of a young page.
   unknown (whether the artifact repacks cleanly into the kernel's expected
   layout). In [`next_steps.md`](next_steps.md).
 
+- **The whole graph was exercised on a live server, and the pipeline is
+  deterministic.** t2i at two canvases, edit at one reference, at two of the
+  same size, and at two of different sizes and aspects, plus a step sweep — all
+  through `SamplerCustomAdvanced` and the sigmas node. The control that makes
+  the rest readable: the same arm run twice is **pixel-identical**, so any
+  difference between arms is signal rather than noise.
+- **The int8_convrot text encoder changes the sample without visibly degrading
+  it** (one pair, t2i and edit, everything else held). Both members of the pair
+  are equally good to look at; the composition, subject, palette and lighting
+  survive and small details move. **This is one pair judged by eye, not a
+  panel**, and the repo's own rule applies: a changed trajectory yields a
+  different sample, not a worse one, so a pixel difference is not a quality
+  verdict. Recorded as "no visible degradation on one pair", which is all it is.
+- **Test prompts must be rewritten prompts, not briefs** (the owner). The
+  encoder only ever sees the expander's output, and the two registers are
+  nothing alike, so driving a render from a brief is off-distribution and
+  quietly voids the comparison. `prompt_bank/` now holds real expander outputs
+  as exemplars plus hand-written entries held to their shape.
+
 - **A sigmas node, because the stock route rests on a coincidence** (the
   owner: we should not rely on an accident). `ModelSamplingFlux` does reproduce
   2.1's dynamic shift exactly, but only because Flux's VAE-8-plus-patch-2

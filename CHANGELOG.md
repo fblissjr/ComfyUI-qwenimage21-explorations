@@ -61,6 +61,11 @@ research that shaped it.
   because `KSampler` builds its own sigmas. One latent feeds both the sampler
   and the schedule, so the shift cannot be computed for a different canvas than
   the one being sampled.
+- `prompt_bank/` — prompts in the register the expanders actually emit. Real
+  outputs marked `source: generated` are the yardstick; `hand-written` entries
+  are held to their shape. A brief and a rewritten prompt are different
+  registers and the encoder only sees the second, so driving a render from a
+  brief is off-distribution.
 - `docs/wiki/sampling.md` and `scripts/sigma_schedule.py` — the sigma schedule:
   what the release's scheduler config asks for, what each implementation does,
   and ComfyUI's two departures (a constant shift where the release asks for a
