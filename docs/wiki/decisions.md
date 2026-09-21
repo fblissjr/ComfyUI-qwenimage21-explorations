@@ -57,6 +57,22 @@ date heading is accurate, not an artifact of a young page.
   were removed in v2.0.30 — so the UI expands them client-side and so does
   this.
 
+  **The spelling split is a boundary, not a defect**, which makes it stable
+  enough to build on. Preset params speak the server's internal vocabulary;
+  `/v1/messages` is Anthropic-conformant, so the rename sits at that boundary
+  exactly as `stop_reason`'s does. That makes `expand_preset` a boundary
+  adapter in the sense AGENTS.md means — normalise the upstream convention once,
+  at the edge, so nothing inland has to know about it.
+
+  *And a correction to how this was found, because the method is the part worth
+  keeping.* The heylook side credits a schema description, and
+  `Preset.params` does carry one saying `enable_thinking` is spelled `thinking`
+  on that route. **It was not read.** The rename turned up from listing every
+  param key across the stored presets and intersecting it with the wire's valid
+  fields — the same compare-two-things move as everything else found today. The
+  doc would have worked; the comparison did work, and it also finds what no doc
+  says.
+
   **The translation is load-bearing, not tidiness.** A preset's `params` use
   the server's internal spellings, and `enable_thinking` appears in most of the
   stored ones while being a 422 on the wire. Verified both directions against
