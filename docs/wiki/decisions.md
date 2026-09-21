@@ -51,6 +51,29 @@ date heading is accurate, not an artifact of a young page.
   so parity is kept and the round trip is gone. Prompted by the heylook side;
   the round trip was safe in practice, and a body containing `</think>` is the
   case it could not have promised — now a test.
+- **An alarm-shaped claim deserves more scrutiny than a reassuring one, and
+  both sides of this exchange proved it the hard way.** The `max_tokens` cap
+  was relayed, checked here against the live schema, and withdrawn; the heylook
+  side then executed their own cascade and confirmed the withdrawal — a request
+  value wins, and the floor is reached only when the request is silent. Two
+  failure modes are worth keeping, because neither was a reasoning error:
+
+  - **Their probe passed a dict where the cascade reads attributes**, so every
+    field resolved to `None` and it printed the alarming answer. The
+    instrument never reached the subject. The tell was an internal
+    contradiction in the output — config appearing to beat the request, against
+    the documented order — not the headline number.
+  - **This side nearly repeated it.** The first verification here read a
+    checkout on disk that was six versions behind the running server, and a
+    conclusion was already forming when the owner said so. Same shape: an
+    instrument aimed at the wrong build.
+
+  **What held was redundancy, not care.** The cap was refuted by the live
+  schema *and* corroborated by a smoke run that had recorded no truncated row.
+  One line of evidence would have been a coin flip; two that agree are a
+  finding. The general rule, worth pricing before acting: a probe that confirms
+  the scarier reading has earned suspicion, not relief.
+
 - **A cancelled or timed-out expansion used to keep running on the server.**
   heylook writes nothing for a non-streaming request until it finishes, so
   hanging up does not stop it: the run continues and blocks everything queued
