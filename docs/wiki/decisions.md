@@ -142,6 +142,22 @@ date heading is accurate, not an artifact of a young page.
   which pick the canvas; the shipped graphs take the canvas from the latent
   node, so for them the prose is everything.
 
+- **The expander's shape now sizes the canvas, at the graph's area** (the
+  owner). `wh_ratio` and `ratio_follow` were computed, graded and wired to
+  nothing, while upstream says they decide the canvas. Two choices, both the
+  owner's: the ratio is applied at the area the graph already samples
+  (1024x1024, or the first reference as the encode node sized it) rather than
+  from the README's `WH_RATIO_TO_SIZE` table, because diffusers, sglang,
+  DiffSynth-Studio and vllm-omni all default to 1024x1024 and the official
+  ComfyUI graphs to a 1-megapixel `ResolutionSelector`; and edit follows the
+  answer too. Core's `ResolutionSelector` could not be reused: its ratio is a
+  combo of fixed labels, which a free-form answer cannot feed.
+
+  Verified end to end on the live server, 2026-09-20, `qwen_image-t2i` and
+  `qwen_image-edit` presets, seed 20260920: a t2i answer of `3:2` sampled and
+  decoded at 1248x832, and an edit answer of `7:3` over a 1024x1024 reference
+  at 1568x672 -- each what `canvas.py::choose` predicts for that answer.
+
 - **The client's field spellings are verified against the live server, not
   assumed.** heylook added 422s naming the right spelling for three fields it
   used to drop in silence — `enable_thinking`, `max_new_tokens` and

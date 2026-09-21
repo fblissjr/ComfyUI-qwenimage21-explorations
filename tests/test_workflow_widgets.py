@@ -60,7 +60,7 @@ def graph_node(kind):
     return next((n for n in doc["nodes"] if n["type"] == kind), None)
 
 
-@pytest.mark.parametrize("attr", ["PEExpand", "EncodeStructured", "Sigmas"])
+@pytest.mark.parametrize("attr", ["PEExpand", "EncodeStructured", "Sigmas", "Canvas"])
 def test_generated_graph_carries_every_output_the_node_declares(nodes, attr):
     """A short output list still validates slot by slot, so it needs its own check.
 
@@ -77,7 +77,7 @@ def test_generated_graph_carries_every_output_the_node_declares(nodes, attr):
     assert [o["name"] for o in node["outputs"]] == declared
 
 
-@pytest.mark.parametrize("attr", ["PEExpand", "EncodeStructured", "Sigmas"])
+@pytest.mark.parametrize("attr", ["PEExpand", "EncodeStructured", "Sigmas", "Canvas"])
 def test_generator_widget_list_matches_the_node(nodes, attr):
     cls = getattr(nodes, attr)
     node_id = cls.define_schema().node_id

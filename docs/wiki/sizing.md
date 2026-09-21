@@ -198,6 +198,15 @@ Two consequences, neither of them a defect on its own:
   stay at the widget's area, where sglang and DiffSynth would have followed the
   canvas. The coupling is a convention of the default wiring, not a contract.
 
+**With the expander, the answer picks the shape.** Both expanders return
+`wh_ratio`, and edit adds `ratio_follow`; the model README says these decide
+the canvas and renders `wh_ratio` from its fixed `WH_RATIO_TO_SIZE` table.
+`Qwen-Image 2.1 Canvas` (`canvas.py::choose`) applies them at the graph's own
+area instead -- the owner's choice, since every implementation defaults to
+1024x1024 -- and keeps core's first-reference canvas when the answer names
+neither. On edit that area is the first reference's, which is the widget's
+area, so the coupling in the second bullet above still holds.
+
 ## 6b. Three views of a reference, not two
 
 Sections 1 and 2 are about the two views that must agree. The edit path with an

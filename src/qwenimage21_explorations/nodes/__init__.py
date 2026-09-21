@@ -16,12 +16,13 @@ import uuid
 import comfy.model_management
 import comfy.utils
 import node_helpers
+import nodes
 import torch
 from comfy_api.latest import ComfyExtension, io
 from typing_extensions import override
 
 from .. import answer as answer_mod
-from .. import chat, sage, sigmas as sigmas_mod, templates
+from .. import canvas as canvas_mod, chat, sage, sigmas as sigmas_mod, templates
 from ..backends import heylook
 from ..profiles import GREEDY, PROFILES, with_preset
 
@@ -320,12 +321,58 @@ class Sigmas(io.ComfyNode):
         return io.NodeOutput(torch.FloatTensor(values))
 
 
+class Canvas(io.ComfyNode):
+    """The output size an expander answer picked, at the graph's own area."""
+
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="QwenImage21Canvas",
+            display_name="Qwen-Image 2.1 Canvas",
+            category=CATEGORY,
+            description=(
+                "Sizes the latent from an expander answer: wh_ratio as a new shape at the area of "
+                "width x height, or of the first reference; ratio_follow as that reference at the size "
+                "the encode node gave it. An answer with neither leaves the size as it was. "
+                "Wire width and height into the latent node."
+            ),
+            inputs=[
+                io.String.Input("wh_ratio", default="",
+                                tooltip="The expander's wh_ratio, e.g. 16:9. Blank or unreadable keeps the base size."),
+                io.String.Input("ratio_follow", default="", optional=True,
+                                tooltip="Edit only: <imageN> sizes the canvas to that reference, as the encode node resized it."),
+                io.Int.Input("width", default=1024, min=32, max=nodes.MAX_RESOLUTION, step=16, optional=True,
+                             tooltip="The size without references, and the area a ratio keeps."),
+                io.Int.Input("height", default=1024, min=32, max=nodes.MAX_RESOLUTION, step=16, optional=True),
+                io.Int.Input("resolution", default=1024, min=0, max=4096, step=32, optional=True,
+                             tooltip="The encode node's resolution, so a reference is sized the way the encoder sized it."),
+                io.Autogrow.Input(
+                    "images",
+                    template=io.Autogrow.TemplateNames(
+                        io.Image.Input("image"),
+                        names=[f"image_{i}" for i in range(1, 17)],
+                        min=0,
+                    ),
+                    optional=True,
+                    tooltip="The encode node's references, in the same order. With any, the first one's encoded size replaces width x height.",
+                ),
+            ],
+            outputs=[io.Int.Output(display_name="width"), io.Int.Output(display_name="height")],
+        )
+
+    @classmethod
+    def execute(cls, wh_ratio, ratio_follow="", width=1024, height=1024, resolution=1024,
+                images: io.Autogrow.Type = None) -> io.NodeOutput:
+        refs = [(int(f.shape[2]), int(f.shape[1])) for f in _autogrow_images(images)]
+        return io.NodeOutput(*canvas_mod.choose(wh_ratio, ratio_follow, width, height, refs, resolution))
+
+
 class QwenImage21Extension(ComfyExtension):
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         # Append only: saved graphs match widget values by index.
         return [PESystemPrompt, PEPrompt, PEParse, PEExpand, EncodeStructured, Sigmas,
-                SageAttention]
+                SageAttention, Canvas]
 
 
 async def comfy_entrypoint() -> QwenImage21Extension:

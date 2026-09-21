@@ -52,6 +52,12 @@
 
 ### Changed
 
+- `QwenImage21Canvas` sizes the latent from the expander's answer: `wh_ratio`
+  as a new shape at the graph's area, `ratio_follow` as that reference at the
+  size the encode node gave it, and neither as before. Both expander example
+  graphs now size their `EmptyLatentImage` through it (edit included, whose
+  latent previously came from the encode node), so they gained a node --
+  regenerate any copy. Logic in `canvas.py`.
 - A server preset with no system prompt overrides nothing, and when nothing
   else supplies one the expander sends no `system` field and reports
   `system_source` "none", instead of failing the run. A graph with no preset

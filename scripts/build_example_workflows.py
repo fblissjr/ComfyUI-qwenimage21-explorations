@@ -68,6 +68,7 @@ WIDGETS = {
     "QwenImage21PEExpand": ["task", "base_url", "model", "sampling", "brief", "preset",
                             "checkpoint_dir", "local_template", "system_override", "thinking",
                             "timeout", "max_pixels"],
+    "QwenImage21Canvas": ["wh_ratio", "ratio_follow", "width", "height", "resolution"],
     "MarkdownNote": ["text"],
 }
 
@@ -150,6 +151,10 @@ will not conform; `contract_ok` is what reports that.
   answer rules. The rewrite may still be usable; read `violations`.
 - `response:truncated` means the token cap cut the thinking trace. That reads
   downstream as bad JSON, so it is named rather than left to look like a model fault.
+- `Qwen-Image 2.1 Canvas` sizes the latent from the answer: `wh_ratio` becomes
+  the shape at the area of its `width` x `height` -- on edit, of the first
+  reference -- and `ratio_follow` sizes it to that reference. Set the size on
+  the canvas node; the latent's width and height are wired from it.
 - Swap `TextEncodeQwenImage21` for `Qwen-Image 2.1 Encode (structured)` to reach
   the system turn, `keep_vision`, and which reference sets the canvas.
 - heylook does no server-side resizing. If you size references upstream and wire
@@ -252,7 +257,28 @@ def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_
     g.link((sampler, 0), (ks, 2), "SAMPLER")
     g.link((sig, 0), (ks, 3), "SIGMAS")
 
-    if edit:
+    if pe is not None:
+        # The expander picks the shape and the canvas keeps the graph's area; an
+        # answer with no shape leaves it on 1024x1024, or on the reference as the
+        # encode node sized it, which is core's own edit latent -- canvas.py.
+        canvas = g.add("QwenImage21Canvas", (1380, 400), ["", "", 1024, 1024, 1024], size=(320, 220))
+        g.sock(canvas, "wh_ratio", "STRING", widget=True)
+        g.sock(canvas, "ratio_follow", "STRING", widget=True, optional=True)
+        g.out(canvas, "width", "INT")
+        g.out(canvas, "height", "INT")
+        g.link((pe, 1), (canvas, 0), "STRING")
+        if edit:
+            g.link((pe, 2), (canvas, 1), "STRING")
+            g.sock(canvas, "images.image_1", "IMAGE", optional=True)
+            g.link((loader, 0), (canvas, 2), "IMAGE")
+        empty = g.add("EmptyLatentImage", (1380, 660), [1024, 1024, 1])
+        g.sock(empty, "width", "INT", widget=True)
+        g.sock(empty, "height", "INT", widget=True)
+        g.out(empty, "LATENT", "LATENT")
+        g.link((canvas, 0), (empty, 0), "INT")
+        g.link((canvas, 1), (empty, 1), "INT")
+        src = (empty, 0)
+    elif edit:
         # The node's own latent matches the reference; any other size shifts the edit.
         src = (enc, 2)
     else:
