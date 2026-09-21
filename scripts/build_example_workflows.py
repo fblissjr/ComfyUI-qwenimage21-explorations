@@ -158,7 +158,7 @@ def common(g: Graph, *, edit: bool):
     return unet, cache, clip, vae
 
 
-def build(edit: bool) -> dict:
+def build(edit: bool, expander: bool = True) -> dict:
     g = Graph()
     _, cache, clip, vae = common(g, edit=edit)
     g.add("MarkdownNote", (40, 600), [NOTE], size=(460, 420), title="Note: prompt expansion")
@@ -171,19 +171,22 @@ def build(edit: bool) -> dict:
 
     brief = ("put the cat on a small wooden boat at dawn" if edit
              else "a capybara wearing a wizard hat, oil painting")
-    pe = g.add("QwenImage21PEExpand", (900, 40),
-               ["edit" if edit else "t2i", HEYLOOK, "", "reference", brief, "", "",
-                "(none)", "", True, 900, PE_MAX_PIXELS], size=(420, 500))
-    if edit:
-        g.sock(pe, "images.image_1", "IMAGE", optional=True)
-        g.link((loader, 0), (pe, 0), "IMAGE")
-    for name in ("rewritten_prompt", "wh_ratio", "ratio_follow", "thinking"):
-        g.out(pe, name, "STRING")
-    g.out(pe, "contract_ok", "BOOLEAN")
-    g.out(pe, "violations", "STRING")
-    g.out(pe, "system_source", "STRING")
+    pe = None
+    if expander:
+        pe = g.add("QwenImage21PEExpand", (900, 40),
+                   ["edit" if edit else "t2i", HEYLOOK, "", "reference", brief, "", "",
+                    "(none)", "", True, 900, PE_MAX_PIXELS], size=(420, 500))
+        if edit:
+            g.sock(pe, "images.image_1", "IMAGE", optional=True)
+            g.link((loader, 0), (pe, 0), "IMAGE")
+        for name in ("rewritten_prompt", "wh_ratio", "ratio_follow", "thinking"):
+            g.out(pe, name, "STRING")
+        g.out(pe, "contract_ok", "BOOLEAN")
+        g.out(pe, "violations", "STRING")
+        g.out(pe, "system_source", "STRING")
 
-    enc = g.add("TextEncodeQwenImage21", (1380, 40), ["", "", 1024], size=(420, 300))
+    enc = g.add("TextEncodeQwenImage21", (1380, 40),
+                ["" if expander else brief, "", 1024], size=(420, 300))
     g.sock(enc, "clip", "CLIP")
     if edit:
         g.sock(enc, "images.image_1", "IMAGE", optional=True)
@@ -197,7 +200,9 @@ def build(edit: bool) -> dict:
     if edit:
         g.link((loader, 0), (enc, 1), "IMAGE")
         g.link((vae, 0), (enc, 2), "VAE")
-    g.link((pe, 0), (enc, enc["inputs"].index(next(i for i in enc["inputs"] if i["name"] == "prompt"))), "STRING")
+    if pe is not None:
+        slot = enc["inputs"].index(next(i for i in enc["inputs"] if i["name"] == "prompt"))
+        g.link((pe, 0), (enc, slot), "STRING")
 
     # SamplerCustomAdvanced rather than KSampler, because KSampler builds its own
     # sigmas and core's schedule for 2.1 is wrong in two ways -- docs/wiki/sampling.md.
@@ -253,6 +258,37 @@ def build(edit: bool) -> dict:
     g.out(save, "images", "IMAGE")     # an output node still declares one; the official graphs carry it
     g.link((dec, 0), (save, 0), "IMAGE")
     return g.json()
+
+
+#: Widgets the frontend renders beside another one. They occupy a slot in
+#: widgets_values and are not inputs the API format carries.
+COMPANION_WIDGETS = {"control_after_generate", "upload"}
+#: Node types the backend does not know; they exist only in the editor.
+FRONTEND_ONLY = {"MarkdownNote"}
+
+
+def to_api(doc: dict) -> dict:
+    """The UI graph as an API prompt, offline.
+
+    ComfyUI's own /object_info could supply the widget order, but a template
+    has to be buildable without a running server, so WIDGETS is the source and
+    `tests/test_workflow_widgets.py` is what keeps it honest against the nodes.
+    """
+    by_link = {l[0]: (str(l[1]), l[2]) for l in doc["links"]}
+    out: dict = {}
+    for n in doc["nodes"]:
+        if n["type"] in FRONTEND_ONLY:
+            continue
+        names = WIDGETS.get(n["type"])
+        if names is None:
+            raise KeyError(f"{n['type']} has no WIDGETS entry; add one before emitting API format")
+        inputs = {k: v for k, v in zip(names, n["widgets_values"])
+                  if k not in COMPANION_WIDGETS}
+        for i in n["inputs"]:
+            if i.get("link") is not None:
+                inputs[i["name"]] = list(by_link[i["link"]])
+        out[str(n["id"])] = {"class_type": n["type"], "inputs": inputs}
+    return out
 
 
 def validate(doc: dict) -> list[str]:
@@ -351,7 +387,25 @@ def main() -> int:
     ap.add_argument("--check", action="store_true", help="fail if the files on disk differ")
     ap.add_argument("--server", metavar="URL",
                     help="also validate against a running ComfyUI, e.g. http://127.0.0.1:8188")
+    ap.add_argument("--api-out", metavar="DIR", type=Path,
+                    help="also write API-format templates there, for a front end to patch")
     args = ap.parse_args()
+
+    if args.api_out:
+        # Four, rather than one the app edits: a front end that adds or removes
+        # nodes is re-authoring the graph, and these are snapshots.
+        for name, edit, pe in (("qi21_t2i", False, False), ("qi21_t2i_pe", False, True),
+                               ("qi21_edit", True, False), ("qi21_edit_pe", True, True)):
+            doc = build(edit, pe)
+            errs = validate(doc)
+            for e in errs:
+                print(f"{name}: {e}", file=sys.stderr)
+            if errs:
+                return 1
+            api = to_api(doc)
+            args.api_out.mkdir(parents=True, exist_ok=True)
+            (args.api_out / f"{name}.json").write_text(json.dumps(api, indent=2) + "\n")
+            print(f"wrote {args.api_out / f'{name}.json'}  ({len(api)} nodes)")
 
     rc = 0
     for name, edit in (("qwen_image_2.1_t2i_heylook_pe.json", False),
