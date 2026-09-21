@@ -12,11 +12,30 @@ Pure data: importable without ComfyUI, so scripts and nodes share one source.
 
 from __future__ import annotations
 
-PROFILES: dict[str, dict] = {
+#: The reference configuration, mirroring `pe_core.py::PROFILES` exactly.
+#: Nothing here may diverge from upstream; `tests/test_profiles_match_upstream.py`
+#: reads that file and fails if it does.
+REFERENCE: dict[str, dict] = {
     "t2i": dict(temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
                 presence_penalty=1.5, max_tokens=16256),
     "edit": dict(temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
                  presence_penalty=0.0, max_tokens=24000),
+}
+
+#: Deliberate divergences from the reference, each with the reason it exists.
+#: The test above fails on any difference that is NOT declared here, so a drift
+#: stays visible while a decision stays possible.
+OVERRIDES: dict[str, dict] = {
+    # Reasoned, the owner, 2026-09-20: raised to head off a truncated thinking
+    # trace. Upstream's t2i cap is 16256 and a trace above it would be cut
+    # mid-stream, which parses as invalid JSON and reads downstream exactly
+    # like a quantization fault. Costs nothing when the trace is shorter.
+    "t2i": dict(max_tokens=24000),
+}
+
+#: What the harness actually sends.
+PROFILES: dict[str, dict] = {
+    task: {**values, **OVERRIDES.get(task, {})} for task, values in REFERENCE.items()
 }
 
 # Measurement configuration. You cannot A/B a quant on sampled text: with

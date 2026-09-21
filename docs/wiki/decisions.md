@@ -43,6 +43,24 @@ date heading is accurate, not an artifact of a young page.
   unknown (whether the artifact repacks cleanly into the kernel's expected
   layout). In [`next_steps.md`](next_steps.md).
 
+- **The structured encode node reproduces core's exactly, verified on a
+  render rather than argued.** Same seed, same fixed prompt, same reference
+  image, only the encode node swapped: the two outputs are **pixel-identical**,
+  every pixel of the frame, differing only in the PNG's embedded workflow
+  metadata. Checked against caching rather than trusted — the structured arm's
+  history shows only the loaders cached, with the encode, sampler, decode and
+  save all genuinely re-run. So its defaults are a real baseline to A/B
+  against, which is the whole claim the node makes.
+
+- **The t2i cap stays at 24000, as a declared override rather than a drift**
+  (the owner: deliberately raised to avoid truncation). `profiles.py` now
+  separates `REFERENCE`, which must mirror upstream exactly, from `OVERRIDES`,
+  which carries the house value together with the reason it exists.
+  `tests/test_profiles_match_upstream.py` fails on any difference that is not
+  declared, and on any declared override that no longer differs from the
+  reference. The earlier entry below recorded this as a bug; it was a bug in
+  `REFERENCE`, and the value the harness sends was the owner's choice all along.
+
 - **`profiles.py` had drifted from the reference it claims to mirror, and
   nothing would have caught it.** Its t2i cap read 24000 against upstream's
   16256 -- and against this repo's own

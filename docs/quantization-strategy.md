@@ -767,6 +767,21 @@ exactly like a quantization regression. Both backends must send explicit
 sampling params on every request rather than relying on either side's defaults,
 and the harness must record what it sent.
 
+*Dated note, 2026-09-20: the server publishes the whole option set per
+provider at `/v1/admin/model-options`, each option tagged with an `effect` --
+`per_request`, `requires_reload`, `load_time_only` or `applies_live`. That
+tagging answers the parity question directly, and it is the list to check
+before assuming a knob can be sent per call. For the mlx provider,
+`temperature`, `top_p`, `top_k`, `min_p`, `presence_penalty`,
+`repetition_penalty`, `max_tokens`, `enable_thinking`, `reasoning_effort`,
+`prefill_step_size` and `vision_tokens` are `per_request`; `context_length`,
+`max_kv_size`, `cache_type` (standard / rotating / quantized), `kv_bits` and
+`kv_group_size` are `requires_reload`. So **context size is not a request
+parameter and not a load-call parameter** -- `/v1/models/{id}/load` takes no
+body at all. It is model config, changed by a PATCH and a reload. Of the
+per-request knobs, `repetition_penalty` is the one we still do not send, which
+is correct because upstream's `Profile` does not set it either.*
+
 Note MLX quantization is a THIRD artifact class, unrelated to comfy_kitchen
 formats and to compressed-tensors. The heylook path consumes MLX-quantized
 weights and DOES read the checkpoint's own `chat_template.jinja` and

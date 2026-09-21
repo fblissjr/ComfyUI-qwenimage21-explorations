@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from qwenimage21_explorations.profiles import PROFILES
+from qwenimage21_explorations.profiles import OVERRIDES, PROFILES, REFERENCE
 
 PE_CORE = Path(__file__).resolve().parents[1] / "coderef/Qwen-Image-2.1/prompt_rewrite/pe_core.py"
 #: pe_core names the cap `max_new_tokens`; ours is the wire name.
@@ -54,8 +54,8 @@ def upstream():
 
 
 @pytest.mark.parametrize("task", ["t2i", "edit"])
-def test_every_value_we_send_matches_the_reference(upstream, task):
-    ours, theirs = PROFILES[task], upstream[task]
+def test_reference_matches_upstream_exactly(upstream, task):
+    ours, theirs = REFERENCE[task], upstream[task]
     for name, value in theirs.items():
         ours_name = ALIASES.get(name, name)
         if ours_name not in ours:
@@ -67,3 +67,18 @@ def test_every_value_we_send_matches_the_reference(upstream, task):
 def test_we_send_no_knob_upstream_does_not_set(upstream, task):
     theirs = {ALIASES.get(k, k) for k in upstream[task]}
     assert set(PROFILES[task]) <= theirs
+
+
+@pytest.mark.parametrize("task", ["t2i", "edit"])
+def test_what_we_send_differs_from_the_reference_only_where_declared(task):
+    """An undeclared divergence is drift; a declared one is a decision."""
+    declared = OVERRIDES.get(task, {})
+    differs = {k for k, v in PROFILES[task].items() if REFERENCE[task].get(k) != v}
+    assert differs == set(declared), f"{task}: undeclared {differs - set(declared)}"
+
+
+def test_every_override_actually_changes_something():
+    """A stale override is a comment claiming a difference that is not there."""
+    for task, over in OVERRIDES.items():
+        for k, v in over.items():
+            assert REFERENCE[task][k] != v, f"{task}.{k} override equals the reference"
