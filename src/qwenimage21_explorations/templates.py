@@ -86,3 +86,29 @@ def resolve(
     raise ValueError(
         "no system prompt: give explicit text, a template file, or a checkpoint directory"
     )
+
+
+def resolve_with_preset(
+    *,
+    explicit_text: str = "",
+    template_path: str | Path | None = None,
+    preset_text: str = "",
+    ckpt_dir: str | Path | None = None,
+) -> SystemPrompt:
+    """`resolve`, with a server preset's prompt slotted above the checkpoint.
+
+    Order: raw text, a local template, the preset, the checkpoint. The preset
+    beats the checkpoint deliberately -- nearly every stored preset carries a
+    system prompt, and choosing one is the whole point, so preferring the
+    checkpoint would ignore exactly what was asked for.
+
+    The cost is real and belongs to the caller: a general-purpose preset's
+    prompt replaces the trained contract, and the answer will not conform.
+    `answer.grade` is what reports that, and the source is returned here so the
+    swap is never silent.
+    """
+    if explicit_text.strip() or template_path:
+        return resolve(explicit_text=explicit_text, template_path=template_path)
+    if preset_text.strip():
+        return SystemPrompt(preset_text.strip(), "preset", {})
+    return resolve(ckpt_dir=ckpt_dir)

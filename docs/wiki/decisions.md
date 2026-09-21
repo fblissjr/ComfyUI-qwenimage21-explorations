@@ -64,10 +64,21 @@ date heading is accurate, not an artifact of a young page.
   forwarded verbatim answers 422. Forwarding would have failed on exactly the
   presets people use.
 
-  Precedence, so it is predictable: the preset's sampler values win over the
-  profile because choosing one is explicit, and its system prompt is the **last
-  resort** — a checkpoint or a template still wins, and supplying nothing still
-  errors clearly.
+  Precedence, so it is predictable: raw text, then a local template, then the
+  preset, then the checkpoint. *Corrected within the session:* the preset's
+  system prompt was first placed **below** the checkpoint, which a survey then
+  showed was wrong for nearly every real preset — **18 of the 19 stored ones
+  carry a system prompt**, two are named `qwen_image-t2i` and
+  `qwen_image-edit`, and the normal PE wiring supplies a checkpoint. Selecting
+  those would have silently ignored exactly what was selected. A preset now
+  beats the checkpoint, and `system_source` is an output so the winner is never
+  a guess.
+
+  **The cost of that order is real and belongs to whoever picks the preset.** A
+  general-purpose preset's prompt replaces the trained contract and the answer
+  will not conform; `contract_ok` is what reports it. Sampler values and the
+  reasoning level layer over the profile the same way — `reasoning_effort`
+  rides through as an explicit field and was verified to answer 200.
 
   **Not a dropdown, and that is a ComfyUI limit rather than a choice.** A
   combo's options are fixed when the schema is built at startup, while

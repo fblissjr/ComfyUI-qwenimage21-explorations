@@ -384,9 +384,11 @@ class PEExpand(io.ComfyNode):
                 io.String.Input("preset", default="", optional=True,
                                 tooltip=(
                                     "A preset stored on the server, by name or id. Blank uses none. "
-                                    "Its sampler values are layered over the profile and its system "
-                                    "prompt is used only when nothing else supplies one. Expanded "
-                                    "here, because the server refuses a preset as a request field."
+                                    "Its sampler values and reasoning level are layered over the "
+                                    "profile, and its system prompt beats the checkpoint's -- see "
+                                    "the system_source output. A general-purpose preset's prompt "
+                                    "will break the answer contract, which contract_ok reports. "
+                                    "Expanded here: the server refuses a preset as a request field."
                                 )),
                 io.String.Input("checkpoint_dir", default="", optional=True,
                                 tooltip="Directory holding the expander's system_prompt.txt. Preferred source."),
@@ -424,6 +426,7 @@ class PEExpand(io.ComfyNode):
                 io.String.Output(display_name="thinking"),
                 io.Boolean.Output(display_name="contract_ok"),
                 io.String.Output(display_name="violations"),
+                io.String.Output(display_name="system_source"),
             ],
         )
 
@@ -438,14 +441,18 @@ class PEExpand(io.ComfyNode):
             preset_fields, preset_system = heylook.expand_preset(found)
 
         tpl = _TEMPLATES_DIR / f"{local_template}.md" if local_template not in ("", "(none)") else None
-        # The preset's system prompt is the last resort, so wiring a checkpoint
-        # or a template still wins, and an empty everything still errors clearly.
-        fallback = "" if (tpl or checkpoint_dir.strip()) else preset_system
-        system = templates.resolve(
-            explicit_text=system_override or fallback,
+        # Order: raw text, then a local template, then the preset, then the
+        # checkpoint. A preset beats the checkpoint because nearly every stored
+        # one carries a system prompt and picking it is the point -- silently
+        # preferring the checkpoint would ignore exactly what was asked for.
+        # `system_source` is an output so the winner is never a guess.
+        resolved = templates.resolve_with_preset(
+            explicit_text=system_override,
             template_path=tpl,
+            preset_text=preset_system,
             ckpt_dir=checkpoint_dir.strip() or None,
-        ).text
+        )
+        system, source = resolved.text, resolved.source
 
         frames = _autogrow_images(images)
         profile = dict((GREEDY if sampling == "greedy" else PROFILES)[task])
@@ -474,7 +481,7 @@ class PEExpand(io.ComfyNode):
             violations.insert(0, "response:truncated")
         return io.NodeOutput(
             graded.rewritten_prompt, graded.wh_ratio, graded.ratio_follow, graded.thinking,
-            graded.contract_ok, ", ".join(violations),
+            graded.contract_ok, ", ".join(violations), source,
         )
 
 
