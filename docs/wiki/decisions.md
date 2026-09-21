@@ -204,9 +204,15 @@ date heading is accurate, not an artifact of a young page.
   **What this does not establish.** A pixel difference is not a quality
   judgement, and looking at the t2i pair the gap is mostly the subject shifting
   scale rather than detail improving. One scene per mode, one seed, judged by
-  eye. The example graphs still ship the official 25;
-  [`sampling.md`](sampling.md) records that nothing here says which step count
-  is better, and a default should move on more than one scene.
+  eye.
+
+  **Acted on 2026-09-20, by the owner: the templates now carry per-mode steps**,
+  t2i 30 and edit 20, in `scripts/build_example_workflows.py::STEPS`. The
+  templates are already separate files, so a single number was only ever a
+  compromise between two different needs. This is **reasoned from the sweep,
+  not measured as an optimum** — the evidence says edit has headroom to spare
+  and t2i does not settle until about 30, which is enough to stop shipping one
+  number for both and not enough to call either value best.
 
 - **The shipped graph now runs end to end in its current form, preset-driven.**
   Until this point the example graphs had been validated against the live

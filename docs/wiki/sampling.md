@@ -38,8 +38,10 @@ ComfyUI value because that is the graph they are modelled on.
 **What a sweep did establish is that the answer differs by mode.** Edit with a
 reference barely moves across 16 to 40; t2i moves several times more and is
 still moving at 20, settling around 30. So a single step default is a
-compromise between two different needs, and the cheap win is a lower count on
-edit rather than on both. Conditions and the caveats are in
+compromise between two different needs, and **the templates here now carry one
+value per mode** rather than the official graph's single figure —
+`scripts/build_example_workflows.py::STEPS` holds them, and the reasoning and
+its limits are in [`decisions.md`](decisions.md). Conditions and the caveats are in
 [`decisions.md`](decisions.md); re-derive with `scripts/sigma_schedule.py` for
 the schedules and a sweep for the renders.
 
