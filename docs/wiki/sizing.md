@@ -198,6 +198,30 @@ Two consequences, neither of them a defect on its own:
   stay at the widget's area, where sglang and DiffSynth would have followed the
   canvas. The coupling is a convention of the default wiring, not a contract.
 
+## 6b. Three views of a reference, not two
+
+Sections 1 and 2 are about the two views that must agree. The edit path with an
+expander has a **third**, and it is independent: what the *expander* sees when
+it writes the prompt. That is a different model doing a different job, and
+nothing requires it to match.
+
+**But the server does no resizing**, so whatever the client sends is what gets
+encoded, and the cap is applied client-side against the reference runner's own
+pixel limit. That cap is an **area**, which produces a sharp edge worth knowing:
+a 16:9 reference at the encode node's default lands on 1376x768, which is a
+fraction of a percent over — enough to earn a resample that softens the image
+and knocks it off the 32-pixel grid, for no benefit.
+
+**So size once, upstream, and hand the same tensor to both.** Put a resize
+ahead of the graph (`ImageResizeKJv2` with `divisible_by` 32, or any of the
+resize nodes this install carries), wire its output to the expander and to the
+encode node, and set the expander's `max_pixels` to **0** so it sends what it
+is given. One resample, one geometry, and the expander describes the image at
+the scale the encoder will read it at.
+
+Leave `max_pixels` at its default when a raw photo goes straight in; that is
+what the cap is for.
+
 ## 7. What a custom node could and could not change
 
 Recorded because the question comes up, not as a recommendation — this repo's

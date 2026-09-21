@@ -387,6 +387,14 @@ class PEExpand(io.ComfyNode):
                                  tooltip="On is the trained default. heylook takes this as a plain bool."),
                 io.Int.Input("timeout", default=900, min=30, max=7200, optional=True,
                              tooltip="Seconds. An edit row with images can run minutes on this backend."),
+                io.Int.Input("max_pixels", default=heylook.DEFAULT_MAX_PIXELS, min=0, max=64 << 20,
+                             step=65536, optional=True,
+                             tooltip=(
+                                 "Cap on each image's pixels, matching the reference runner. The server does "
+                                 "no resizing, so this is the only cap. Set 0 to send images untouched, which "
+                                 "is what you want when they were already sized upstream -- otherwise a "
+                                 "fraction-of-a-percent overshoot costs a pointless resample."
+                             )),
                 io.Autogrow.Input(
                     "images",
                     template=io.Autogrow.TemplateNames(
@@ -411,6 +419,7 @@ class PEExpand(io.ComfyNode):
     @classmethod
     def execute(cls, task, base_url, model, sampling, brief, checkpoint_dir="", local_template="(none)",
                 system_override="", thinking=True, timeout=900,
+                max_pixels=heylook.DEFAULT_MAX_PIXELS,
                 images: io.Autogrow.Type = None) -> io.NodeOutput:
         tpl = _TEMPLATES_DIR / f"{local_template}.md" if local_template not in ("", "(none)") else None
         system = templates.resolve(
@@ -427,6 +436,7 @@ class PEExpand(io.ComfyNode):
             system=system,
             brief=brief,
             images=[_to_pil(f) for f in frames],
+            max_pixels=max_pixels,
             thinking=thinking,
             timeout=timeout,
             **profile,

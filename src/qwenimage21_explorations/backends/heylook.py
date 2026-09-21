@@ -51,13 +51,19 @@ class Response:
 
 
 def encode_image(source, max_pixels: int = DEFAULT_MAX_PIXELS) -> dict:
-    """`source` is a path or an already-open PIL image (what a ComfyUI node has)."""
+    """`source` is a path or an already-open PIL image (what a ComfyUI node has).
+
+    `max_pixels` of 0 sends the image untouched. That is the right setting when
+    it was already sized upstream: the cap is an area, so an image on the
+    encoder's own 32-pixel grid can sit a fraction of a percent above it and
+    earn a resample that only softens it and leaves the grid.
+    """
     from PIL import Image
 
     img = source if hasattr(source, "convert") else Image.open(source)
     img = img.convert("RGB")
     w, h = img.size
-    if w * h > max_pixels:
+    if max_pixels and w * h > max_pixels:
         scale = (max_pixels / (w * h)) ** 0.5
         img = img.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.LANCZOS)
     buf = io.BytesIO()
@@ -97,6 +103,7 @@ def generate(
     system: str,
     brief: str,
     images: list | None = None,
+    max_pixels: int = DEFAULT_MAX_PIXELS,
     temperature: float,
     top_p: float,
     top_k: int,
@@ -111,7 +118,7 @@ def generate(
     `thinking` is heylook's own bool, not Anthropic's config object; left None
     the server applies the model's default, which is on for both expanders.
     """
-    content: list[dict] = [encode_image(p) for p in (images or [])]
+    content: list[dict] = [encode_image(p, max_pixels) for p in (images or [])]
     content.append({"type": "text", "text": brief})
     body = {
         "model": model,

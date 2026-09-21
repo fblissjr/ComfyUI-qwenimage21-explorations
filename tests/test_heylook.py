@@ -1,10 +1,14 @@
 """heylook returns thinking as its own content block; ComfyUI returns it inline.
 
-One parser has to grade both, so the backend folds the two shapes into one.
-These pin that fold, and the truncation signal the harness depends on.
+One contract has to grade both, so these pin the normalisation, the truncation
+signal the harness depends on, and the pixel cap the server will not apply.
 """
 
+import base64
+import io
+
 from qwenimage21_explorations.answer import parse_and_grade
+from qwenimage21_explorations.backends import heylook
 from qwenimage21_explorations.backends.heylook import normalise_response
 
 
@@ -47,3 +51,22 @@ def test_usage_is_carried():
     r = normalise_response(payload([{"type": "text", "text": "{}"}],
                                    usage={"input_tokens": 2449, "output_tokens": 1219}))
     assert (r.input_tokens, r.output_tokens) == (2449, 1219)
+
+
+def test_the_pixel_cap_is_opt_out():
+    """A pre-sized image should reach the server untouched.
+
+    The cap is an area, so an image on the encoder's own 32-pixel grid can sit a
+    fraction of a percent above it. Resampling then buys nothing and costs the
+    grid: 1376x768, which is what the encode node produces for a 16:9 reference
+    at its default, is 0.4% over.
+    """
+    from PIL import Image
+
+    def sent(cap):
+        blob = heylook.encode_image(Image.new("RGB", (1376, 768)), cap)
+        raw = base64.b64decode(blob["source"]["data"])
+        return Image.open(io.BytesIO(raw)).size
+
+    assert sent(0) == (1376, 768)
+    assert sent(heylook.DEFAULT_MAX_PIXELS) != (1376, 768)

@@ -121,6 +121,10 @@ heylook and wires the rewritten prompt into the encode node.
   downstream as bad JSON, so it is named rather than left to look like a model fault.
 - Swap `TextEncodeQwenImage21` for `Qwen-Image 2.1 Encode (structured)` to reach
   the system turn, `keep_vision`, and which reference sets the canvas.
+- heylook does no server-side resizing. If you size references upstream and wire
+  the same image to both nodes, set the expander's `max_pixels` to 0 so it sends
+  them untouched -- otherwise an image already on the 32-pixel grid can sit just
+  over the area cap and earn a resample worth nothing.
 """
 
 
