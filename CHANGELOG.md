@@ -48,6 +48,12 @@ research that shaped it.
   and ComfyUI core each run 2.1 for text-to-image and for edit: the conditioning
   contract they agree on, the three bookkeeping strategies they use for one
   fusion, and the expander stage none of them runs. The wiki's one owner page.
+- `QwenImage21Sigmas` — the schedule the checkpoint's scheduler config asks
+  for: dynamic shift read from the latent's own shape, plus the terminal
+  stretch core has no equivalent for. Emits `SIGMAS` for
+  `SamplerCustomAdvanced`; `shift_terminal` at zero reproduces core on that
+  axis, so it is an A/B and not only a fix. Arithmetic in
+  `src/qwenimage21_explorations/sigmas.py`, importable without ComfyUI.
 - `docs/wiki/sampling.md` and `scripts/sigma_schedule.py` — the sigma schedule:
   what the release's scheduler config asks for, what each implementation does,
   and ComfyUI's two departures (a constant shift where the release asks for a

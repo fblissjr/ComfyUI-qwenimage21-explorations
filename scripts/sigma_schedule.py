@@ -12,10 +12,11 @@ ComfyUI instead bakes one constant, `comfy/supported_models.py::QwenImage21`'s
 drifts either way from there. It also has no `shift_terminal`, which the
 config sets, so its schedule runs to zero instead of the stretched terminal.
 
-Neither is reachable from a widget on the stock graph, but the stock
-`ModelSamplingFlux` node gets the dynamic half exactly right if you give it the
-values `--widgets` prints: its hardcoded token count happens to match 2.1's
-latent grid, and only its shift bounds are Flux's.
+`QwenImage21Sigmas` builds the schedule the config asks for, both halves, and
+takes its canvas from the latent. The stock `ModelSamplingFlux` node can do the
+dynamic half alone if given the values `--widgets` prints, but only because its
+hardcoded token count coincides with 2.1's latent grid -- a coincidence, not a
+contract.
 
 Usage:
   python scripts/sigma_schedule.py            # mu by canvas
@@ -82,7 +83,8 @@ def main() -> int:
         print(f"  base_shift = {base:.4f}")
         print(f"  max_shift  = {mx:.4f}")
         print("  width / height = the canvas you are sampling at")
-        print("\nIt cannot supply shift_terminal; nothing in ComfyUI implements that.")
+        print("\nIt does not apply shift_terminal -- no stock node does.")
+        print("QwenImage21Sigmas does both, and takes its canvas from the latent.")
         return 0
 
     if args.sigmas:

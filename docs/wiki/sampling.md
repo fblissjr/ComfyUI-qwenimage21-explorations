@@ -59,17 +59,42 @@ This one is resolution-independent and is the larger of the two departures at
 
 Run `scripts/sigma_schedule.py --sigmas` for both, at whatever step count.
 
-## 4. The half that needs no code
+## 4. Closing the gap
 
-The stock `ModelSamplingFlux` node reproduces the dynamic mu **exactly**, at
-every canvas, given the right two widget values —
-`scripts/sigma_schedule.py --widgets` prints them. Two accidents make this
-work: the node's hardcoded token count is `width * height / 256`, which is
-Flux's VAE-8-plus-patch-2 geometry and also 2.1's VAE-16 unpatched geometry;
-and its shift bounds are widgets, so the wrong hardcoded sequence bound can be
-absorbed into them. Set the node's width and height to the canvas you sample at.
+**`QwenImage21Sigmas` builds the schedule the config asks for** and emits
+`SIGMAS` for `SamplerCustomAdvanced`. It reads the shift from the **latent it
+is given**, so the canvas it sizes for cannot disagree with the canvas the
+sampler receives, and it applies the terminal stretch. The checkpoint's
+scheduler values are its defaults rather than literals, so a checkpoint
+declaring different ones is served by the same node. The arithmetic is
+`src/qwenimage21_explorations/sigmas.py`, importable and tested without
+ComfyUI.
 
-It cannot supply `shift_terminal`. Nothing in ComfyUI can.
+Setting `shift_terminal` to zero reproduces core's behaviour on that axis,
+which is what makes the node usable as an A/B rather than only as a fix.
+
+### The stock node can do the dynamic half, but on a coincidence
+
+`ModelSamplingFlux` reproduces the dynamic mu exactly, at every canvas, given
+the two widget values `scripts/sigma_schedule.py --widgets` prints. It works
+because its hardcoded token count is `width * height / 256`, which is Flux's
+VAE-8-plus-patch-2 geometry and also, by coincidence, 2.1's VAE-16 unpatched
+geometry; its wrong sequence bound then absorbs into the two shift widgets.
+
+**Recorded as a fact, not a recommendation.** Two unrelated geometries
+agreeing is not a contract, the widget values are magic numbers with no
+on-screen reason, and it still leaves the terminal stretch undone. Reach for it
+only to sanity-check the node above against stock machinery.
+
+### Correcting something said earlier
+
+An earlier draft of this page said `shift_terminal` "cannot" be done in
+ComfyUI. That was wrong. **No stock node does it**, which is the true claim;
+the transform itself is three lines on the sigma vector, and nothing about
+ComfyUI's sampler prevents it. The ordering is the only subtlety, and
+`sigmas.py` carries it: stretch the computed sigmas, *then* append the zero.
+Stretch after appending and the scale factor is one, so the code looks
+implemented and does nothing.
 
 ## 5. Tying the schedule to something else
 
@@ -102,9 +127,7 @@ that is already off in two known ways would confound the two.
 [`../quantization-strategy.md`](../quantization-strategy.md) section 13b is
 this repo's rule about deciding the measurement before building.
 
-**The hook exists when it is wanted.** ComfyUI's `SamplerCustomAdvanced` takes
-a `SIGMAS` input, and many nodes produce one, so a schedule of our own is a
-node that emits `SIGMAS` — no patching, no fork of the sampler. That is also
-the cheapest way to close both departures in section 3 at once, since a node
-emitting the release's exact schedule would carry the dynamic mu and the
-terminal together.
+**The hook is already built.** `QwenImage21Sigmas` emits `SIGMAS`, so an
+experiment is a change to `sigmas.py`'s arithmetic and not a patched sampler.
+Anything tried there should be graded against that node at its defaults, which
+is the release's own schedule, rather than against core's.

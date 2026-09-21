@@ -43,6 +43,20 @@ date heading is accurate, not an artifact of a young page.
   unknown (whether the artifact repacks cleanly into the kernel's expected
   layout). In [`next_steps.md`](next_steps.md).
 
+- **A sigmas node, because the stock route rests on a coincidence** (the
+  owner: we should not rely on an accident). `ModelSamplingFlux` does reproduce
+  2.1's dynamic shift exactly, but only because Flux's VAE-8-plus-patch-2
+  token count equals 2.1's VAE-16 unpatched one, and it still leaves the
+  terminal stretch undone. `QwenImage21Sigmas` computes both from the
+  checkpoint's own scheduler values and reads the canvas from the latent it is
+  handed, so it cannot disagree with the sampler. [`sampling.md`](sampling.md).
+- **Corrected the same day: `shift_terminal` was described as impossible in
+  ComfyUI.** It is not. No *stock* node does it, and nothing prevents one from
+  doing it — the transform is three lines on the sigma vector. The only
+  subtlety is ordering: stretch the computed sigmas and then append the zero,
+  because doing it the other way leaves the scale factor at one and silently
+  changes nothing. Pinned by `tests/test_sigmas.py`.
+
 - **The structured encode node reproduces core's exactly, verified on a
   render rather than argued.** Same seed, same fixed prompt, same reference
   image, only the encode node swapped: the two outputs are **pixel-identical**,

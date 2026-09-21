@@ -19,7 +19,7 @@ from comfy_api.latest import ComfyExtension, io
 from typing_extensions import override
 
 from .. import answer as answer_mod
-from .. import chat, templates
+from .. import chat, sigmas as sigmas_mod, templates
 from ..backends import heylook
 from ..profiles import GREEDY, PROFILES
 
@@ -259,11 +259,60 @@ class EncodeStructured(io.ComfyNode):
         return io.NodeOutput(out[0], out[1], {"samples": latent})
 
 
+# ---------------------------------------------------------------------------
+# The release's sigma schedule
+
+
+class Sigmas(io.ComfyNode):
+    """The schedule the checkpoint asks for: dynamic shift, and the terminal stretch."""
+
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="QwenImage21Sigmas",
+            display_name="Qwen-Image 2.1 Sigmas",
+            category=CATEGORY,
+            description=(
+                "Builds the flow-match schedule the checkpoint's scheduler config specifies. "
+                "Core carries one constant shift, right at 1024x1024 and drifting either way, "
+                "and implements no shift_terminal at all. Wire this into SamplerCustomAdvanced."
+            ),
+            inputs=[
+                io.Latent.Input("latent",
+                                tooltip="The canvas being sampled. The shift is read from its shape, so it cannot disagree with what the sampler gets."),
+                io.Int.Input("steps", default=25, min=1, max=10000),
+                io.Float.Input("denoise", default=1.0, min=0.0, max=1.0, step=0.01,
+                               tooltip="Follows core's BasicScheduler: keeps the tail of a longer schedule."),
+                io.Float.Input("shift_terminal", default=sigmas_mod.SHIFT_TERMINAL,
+                               min=0.0, max=1.0, step=0.001, optional=True,
+                               tooltip="The checkpoint's value. 0 disables the stretch, which is what core does."),
+                io.Int.Input("base_seq_len", default=sigmas_mod.BASE_SEQ_LEN, min=1, max=1 << 20, optional=True),
+                io.Int.Input("max_seq_len", default=sigmas_mod.MAX_SEQ_LEN, min=1, max=1 << 20, optional=True),
+                io.Float.Input("base_shift", default=sigmas_mod.BASE_SHIFT, min=0.0, max=100.0, step=0.01, optional=True),
+                io.Float.Input("max_shift", default=sigmas_mod.MAX_SHIFT, min=0.0, max=100.0, step=0.01, optional=True),
+            ],
+            outputs=[io.Sigmas.Output()],
+        )
+
+    @classmethod
+    def execute(cls, latent, steps, denoise=1.0, shift_terminal=sigmas_mod.SHIFT_TERMINAL,
+                base_seq_len=sigmas_mod.BASE_SEQ_LEN, max_seq_len=sigmas_mod.MAX_SEQ_LEN,
+                base_shift=sigmas_mod.BASE_SHIFT, max_shift=sigmas_mod.MAX_SHIFT) -> io.NodeOutput:
+        h, w = latent["samples"].shape[-2:]
+        values = sigmas_mod.schedule(
+            steps, int(h) * int(w), denoise=denoise,
+            shift_terminal=shift_terminal or None,
+            base_seq_len=base_seq_len, max_seq_len=max_seq_len,
+            base_shift=base_shift, max_shift=max_shift,
+        )
+        return io.NodeOutput(torch.FloatTensor(values))
+
+
 class QwenImage21Extension(ComfyExtension):
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         # Append only: saved graphs match widget values by index.
-        return [PESystemPrompt, PEPrompt, PEParse, PEExpand, EncodeStructured]
+        return [PESystemPrompt, PEPrompt, PEParse, PEExpand, EncodeStructured, Sigmas]
 
 
 async def comfy_entrypoint() -> QwenImage21Extension:
