@@ -761,6 +761,32 @@ read also caught the t2i cap in `profiles.py` sitting at 24000 against
 upstream's 16256; `tests/test_profiles_match_upstream.py` is the guard that
 was missing.*
 
+*Correction, 2026-09-20, from the heylook side and NOT verified here (that
+server was down when this was written).* The `effect` tags above say when a
+change takes hold, not that a field does anything for a given model family. For
+these `qwen3_5` checkpoints specifically, the claim is that `max_kv_size` and
+`cache_type` are **inert** -- `make_cache` returns before either is read, with
+no error and no log -- and that `context_length` allocates nothing on MLX,
+serving only as an over-length refusal. **An inference drawn here earlier, that
+those knobs bound the KV allocation and would show up in load time, is
+withdrawn**; timing a reload against any of them would have measured nothing.
+Two further claims worth checking when that server is reachable: that
+`max_tokens` is capped server-side at a value below the edit profile's, which
+would silently clamp what we ask for (our `Response.truncated` is what would
+catch it), and that `/v1/admin/model-options` now tags each field with an
+`engines` list, which is finer than the provider key this section used.
+
+*Also relayed, and an operator's call rather than ours:* `max_loaded_models`
+defaults to 1 while each PE checkpoint is large, so a pipeline alternating t2i
+and edit pays an evict-and-reload on every switch.
+
+*What does NOT reach us:* the same message's headline, that the server serves
+these models on its global sampling floor rather than the reference profile.
+`backends/heylook.py` sends every sampling field explicitly on every request
+and `encode_image` caps pixels at the reference's own limit, so the divergence
+is already closed at the client. That is the reason `profiles.py` exists as a
+constant rather than a comment.
+
 The `max_tokens` gap is the dangerous one: 4096 will truncate a long thinking
 trace mid-stream, and a truncated trace produces unparseable JSON that looks
 exactly like a quantization regression. Both backends must send explicit

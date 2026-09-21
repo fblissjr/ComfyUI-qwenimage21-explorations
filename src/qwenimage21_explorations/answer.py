@@ -84,9 +84,27 @@ def _first_json_object(text: str) -> str | None:
     return None
 
 
+def parse_parts(thinking: str, body: str) -> Answer:
+    """Parse an answer a backend already split for us.
+
+    heylook returns thinking as its own content block. Re-joining it into
+    ComfyUI's inline shape only to split it again is a round trip that can only
+    lose, so the backend's own split is used directly and the contract grading
+    below is shared either way.
+    """
+    ans = Answer(raw=body)
+    ans.thinking, ans.body = thinking.strip(), body.strip()
+    return _parse_body(ans)
+
+
 def parse(text: str) -> Answer:
+    """Parse an answer with the thinking still inline, as ComfyUI returns it."""
     ans = Answer(raw=text)
     ans.thinking, ans.body = split_thinking(text)
+    return _parse_body(ans)
+
+
+def _parse_body(ans: Answer) -> Answer:
     candidate = strip_fences(ans.body)
     blob = candidate if candidate.startswith("{") else (_first_json_object(candidate) or "")
     if not blob:
@@ -157,3 +175,8 @@ def grade(ans: Answer, *, task: str, n_images: int = 0) -> Answer:
 
 def parse_and_grade(text: str, *, task: str, n_images: int = 0) -> Answer:
     return grade(parse(text), task=task, n_images=n_images)
+
+
+def grade_parts(thinking: str, body: str, *, task: str, n_images: int = 0) -> Answer:
+    """The same contract, for a backend that split the thinking itself."""
+    return grade(parse_parts(thinking, body), task=task, n_images=n_images)

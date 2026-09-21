@@ -43,6 +43,22 @@ date heading is accurate, not an artifact of a young page.
   unknown (whether the artifact repacks cleanly into the kernel's expected
   layout). In [`next_steps.md`](next_steps.md).
 
+- **The expander answer is graded from the backend's own split, not from a
+  rejoined one.** heylook returns thinking as its own content block; the client
+  used to fold that back into ComfyUI's inline shape so one parser could grade
+  either backend, which meant splitting a string we had just joined.
+  `answer.grade_parts` takes the parts directly and shares the contract logic,
+  so parity is kept and the round trip is gone. Prompted by the heylook side;
+  the round trip was safe in practice, and a body containing `</think>` is the
+  case it could not have promised — now a test.
+- **An inference about heylook's KV knobs is withdrawn.** Told the owner that
+  `max_kv_size` and `cache_type` bound the allocation and offered to time
+  reloads; the heylook side says both are inert for this checkpoint family and
+  `context_length` allocates nothing on MLX. Not verified here — that server
+  was down — so it is recorded as their claim, in
+  [`../quantization-strategy.md`](../quantization-strategy.md) section 17,
+  rather than adopted silently or ignored.
+
 - **Step count matters much less for edit than for t2i, and the owner's read
   that 20 is enough holds where it was made.** Swept 16/20/25/30/40 twice, same
   prompt and seed in each sweep, one scene each. **Edit with one reference

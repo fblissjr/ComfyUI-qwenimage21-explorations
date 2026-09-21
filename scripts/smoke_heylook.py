@@ -56,8 +56,8 @@ def run_task(task: str, *, base_url: str, data_dir: Path, ckpt: Path, limit: int
             print(f"  {row['id']:<12} ERROR {type(e).__name__}: {str(e)[:80]}")
             continue
 
-        graded = answer_mod.parse_and_grade(
-            resp.as_inline(), task=task, n_images=len(images)
+        graded = answer_mod.grade_parts(
+            resp.thinking, resp.text, task=task, n_images=len(images)
         )
         rec = dict(
             id=row["id"], task=task, task_type=row.get("task_type", ""),

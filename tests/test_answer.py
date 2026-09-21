@@ -3,7 +3,7 @@ emitting valid JSON while breaking the mode-dependent rules."""
 
 import pytest
 
-from qwenimage21_explorations.answer import parse, parse_and_grade
+from qwenimage21_explorations.answer import grade_parts, parse, parse_and_grade
 
 
 def wrap(body, think="reasoning"):
@@ -68,3 +68,21 @@ def test_contract_violations(body, task, n, expect):
 def test_prose_around_the_object_is_tolerated():
     a = parse(wrap('Here you go:\n{"rewritten_prompt":"x","wh_ratio":"1:1"}\nHope that helps.'))
     assert a.parse_ok
+
+
+def test_a_backend_split_grades_the_same_as_an_inline_one():
+    """One contract, two backends. heylook splits; ComfyUI does not."""
+    body = '{"rewritten_prompt": "a corgi on a wet street", "wh_ratio": "1:1"}'
+    thinking = "weighing the framing"
+    inline = parse_and_grade(f"<think>\n{thinking}\n</think>\n\n{body}", task="t2i")
+    split = grade_parts(thinking, body, task="t2i")
+    assert (split.rewritten_prompt, split.wh_ratio, split.contract_ok) == \
+           (inline.rewritten_prompt, inline.wh_ratio, inline.contract_ok)
+    assert split.thinking == inline.thinking == thinking
+
+
+def test_a_body_containing_think_markers_survives_the_backend_split():
+    """The round trip this replaces could not promise that."""
+    body = '{"rewritten_prompt": "a sign reading </think>", "wh_ratio": "1:1"}'
+    a = grade_parts("reasoning", body, task="t2i")
+    assert a.contract_ok and "</think>" in a.rewritten_prompt

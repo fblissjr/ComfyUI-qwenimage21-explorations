@@ -431,7 +431,8 @@ class PEExpand(io.ComfyNode):
             timeout=timeout,
             **profile,
         )
-        graded = answer_mod.parse_and_grade(resp.as_inline(), task=task, n_images=len(frames))
+        # heylook split the thinking itself; use its split rather than rejoining and re-splitting.
+        graded = answer_mod.grade_parts(resp.thinking, resp.text, task=task, n_images=len(frames))
         violations = list(graded.violations)
         if resp.truncated:
             # Reads downstream as unparseable JSON, which looks like a model fault; name it.
