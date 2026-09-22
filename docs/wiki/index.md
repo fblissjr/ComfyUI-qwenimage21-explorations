@@ -55,6 +55,7 @@ documents themselves tag their claims.
 | `scripts/smoke_heylook.py` | the end-to-end run, over the upstream example briefs verbatim |
 | `scripts/build_example_workflows.py` | generates `example_workflows/`. `--check` against disk, `--server` against a running ComfyUI's schemas, `--api-out` for API-format templates a front end patches. Graph JSON is generated because a moved slot leaves a hand-written file looking fine |
 | `scripts/sigma_schedule.py`, `scripts/refview_bounds.py` | the arithmetic behind [`sampling.md`](sampling.md) and [`sizing.md`](sizing.md), so neither page caches a number |
+| `scripts/steps_sweep.py` | renders a step-count or sage-mode grid on a running ComfyUI, t2i or edit, with determinism and sage-fired gates in its results file. `--report` reprints a run. Behind the shipped step counts and the sage default |
 | `tests/` | the run command is in [`../../README.md`](../../README.md). What they do and do not cover is [`stages.md`](stages.md)'s guard column |
 | `templates/` | local system-prompt variants only. A variant there is a hypothesis, not a drop-in |
 | `coderef/` | reference checkouts. Gitignored, machine-local, part symlink. Port from them, never import — [`references.md`](references.md) |

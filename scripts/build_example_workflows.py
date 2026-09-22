@@ -162,6 +162,9 @@ will not conform; `contract_ok` is what reports that.
   the canvas node; the latent's width and height are wired from it.
 - Swap `TextEncodeQwenImage21` for `Qwen-Image 2.1 Encode (structured)` to reach
   the system turn, `keep_vision`, and which reference sets the canvas.
+- `Qwen-Image 2.1 Sage Attention` ships `off` here: it needs the Ada fork of
+  SageAttention and raises without it. Set `sage_mode` to `auto` where the fork
+  is installed; `off` passes the model through untouched.
 - heylook does no server-side resizing. If you size references upstream and wire
   the same image to both nodes, set the expander's `max_pixels` to 0 so it sends
   them untouched -- otherwise an image already on the 32-pixel grid can sit just

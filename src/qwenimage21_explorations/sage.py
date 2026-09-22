@@ -73,18 +73,23 @@ captured H3 activations, not on this model, so `auto` here means what sage's
 own dispatcher picks. The rotated mode is exposed as an explicit choice and is
 ungraded on 2.1.
 
-## Unmeasured
+## Measured, and what is still not
 
-It has run on a GPU: `scripts/smoke_sage.py` checks the kernels at 2.1's
-shapes, and `scripts/steps_sweep.py` renders full graphs with this node in
-them, recording the `fired` log lines and a byte-identical repeat render in its
-results file. On Ada, `auto` fired `fp8_cuda++` with no fallback. There is
-still no A/B and no speed claim for this model. What would produce one: the same graph at a fixed seed and canvas with
-`sage_mode` at `auto` and at `off`, plus a `get_dispatch_counts()` snapshot
-before and after each render, so the arms are distinguishable by something
-other than the wall clock. A second pair with `QwenImage21Cache` set to
-`device=off` measures the block-causal path instead of the cached one, which is
-a different shape wearing the same node's name.
+`scripts/smoke_sage.py` checks the kernels at 2.1's shapes. On 2026-09-22
+`scripts/steps_sweep.py --sage-modes` ran the A/B on full t2i renders, on Ada,
+with the prefix cache at its default: every mode against `off` at two step
+counts, two prompts, three seeds, recording the `fired` lines and a
+byte-identical repeat render. Every mode stayed far closer to `off` than 25
+steps is to 40, every mode was somewhat faster than `off`, and the modes
+differed little from each other, so `auto` is the shipped choice and
+`sage_masked` stays off.
+`python scripts/steps_sweep.py --report data/steps_sweep/2026-09-22_sage_modes`
+reprints it, conditions included.
+
+Not measured: the block-causal path on its own. With `QwenImage21Cache` at
+`device=off` every step runs the segmented shape instead of the cached one --
+a different shape wearing the same node's name -- and edit, whose longer
+prefix makes that shape heavier, was swept only at `auto`.
 """
 
 from __future__ import annotations
