@@ -19,6 +19,19 @@ Older and finer-grained history is not copied here:
 
 ## 2026-09-22
 
+- **References stay PNG; JPEG was proposed and declined.** The heylook side
+  proposed JPEG to shrink request bodies over Tailscale. Its premise was a
+  relayed hop, and `tailscale ping mojo` from vojo answered direct over the
+  LAN. Equal token counts show nothing about content, since the count is a
+  function of dimensions alone. The exposed case is `text_edit`, where the
+  expander transcribes small text off the reference. All three upstream
+  runners send PNG, and this repo mirrors them. The proposer withdrew it.
+  **What would reopen it** is transport becoming a real share of an
+  expansion. The server cannot show that, because its clock starts after the
+  body is parsed, so the `[heylook]` log line now carries `wire_ms`, this
+  side's wall time minus the server's own. Adopting JPEG would still need a
+  greedy A/B on the upstream edit samples first.
+
 - **t2i ships 40 steps** (the owner). `scripts/steps_sweep.py` found t2i still
   converging at the official 25 on both canvases it ran, with the extra steps
   refining detail rather than recomposing. 40 is every other implementation's

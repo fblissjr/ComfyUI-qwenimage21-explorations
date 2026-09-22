@@ -36,6 +36,10 @@
 
 ### Changed
 
+- The `[heylook]` log line carries `wire_ms`: the node's wall time around the
+  request minus the server's `request_duration_ms`. The server's clock starts
+  after the body is parsed, so transport is invisible to it; this is where a
+  slow hop would show. `None` when the server sends no duration.
 - Every generated graph carries `QwenImage21SageAttention` between the cache
   and the guider: `auto` in the API templates the owner's front end loads,
   `off` in `example_workflows/`, because the node raises without the Ada fork

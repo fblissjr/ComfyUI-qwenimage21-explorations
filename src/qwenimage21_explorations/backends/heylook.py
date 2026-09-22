@@ -37,6 +37,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -222,8 +223,10 @@ def generate(
     root = base_url.rstrip("/")
     delivered = False
     try:
+        started = time.monotonic()
         r = requests.post(f"{root}/v1/messages", json=body, timeout=timeout,
                           headers={"X-Request-ID": request_id})
+        wall_ms = round((time.monotonic() - started) * 1000)
         if r.status_code >= 400:
             # raise_for_status throws away the body, and the body is where this
             # server says what was wrong -- a 422 names the field and the right
@@ -236,10 +239,15 @@ def generate(
         delivered = True
         # One line per expansion so a slow one can be attributed without a
         # re-run: prefill scales with images x pixels, decode with the trace.
+        # The server's clock starts once the body is received and parsed, so
+        # transport is outside total_ms on every path; wire_ms is what this
+        # side's wall clock adds to it -- upload, download and the server's
+        # parse -- and is what would show a relayed hop making payloads costly.
+        total_ms = out.performance.get("request_duration_ms")
         logging.info(
-            "[heylook] %s tokens in=%d out=%d prefill_ms=%s decode_ms=%s total_ms=%s stop=%s",
+            "[heylook] %s tokens in=%d out=%d prefill_ms=%s decode_ms=%s total_ms=%s wire_ms=%s stop=%s",
             model, out.input_tokens, out.output_tokens, out.prefill_ms, out.decode_ms,
-            out.performance.get("request_duration_ms"), out.stop_reason,
+            total_ms, wall_ms - total_ms if total_ms is not None else None, out.stop_reason,
         )
         return out
     finally:

@@ -131,6 +131,40 @@ def test_a_delivered_request_is_not_cancelled(monkeypatch):
     assert calls == []
 
 
+def test_the_log_line_splits_transport_from_the_servers_own_time(monkeypatch, caplog):
+    class Ok:
+        status_code = 200
+        def json(self):
+            return {**payload([{"type": "text", "text": "{}"}]),
+                    "performance": {"request_duration_ms": 1000}}
+
+    clock = iter([10.0, 11.25])
+    monkeypatch.setattr(heylook.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(heylook.requests, "post", lambda url, **kw: Ok())
+    monkeypatch.setattr(heylook.requests, "delete", lambda url, **kw: None)
+    with caplog.at_level("INFO"):
+        heylook.generate(base_url="http://h", model="m", system="s", brief="b",
+                         temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                         presence_penalty=0.0, max_tokens=10)
+    line = next(r.getMessage() for r in caplog.records if "[heylook]" in r.getMessage())
+    assert "total_ms=1000 wire_ms=250 " in line
+
+
+def test_a_server_without_a_duration_logs_no_wire_time(monkeypatch, caplog):
+    class Ok:
+        status_code = 200
+        def json(self): return payload([{"type": "text", "text": "{}"}])
+
+    monkeypatch.setattr(heylook.requests, "post", lambda url, **kw: Ok())
+    monkeypatch.setattr(heylook.requests, "delete", lambda url, **kw: None)
+    with caplog.at_level("INFO"):
+        heylook.generate(base_url="http://h", model="m", system="s", brief="b",
+                         temperature=1.0, top_p=0.95, top_k=20, min_p=0.0,
+                         presence_penalty=0.0, max_tokens=10)
+    line = next(r.getMessage() for r in caplog.records if "[heylook]" in r.getMessage())
+    assert "total_ms=None wire_ms=None " in line
+
+
 PRESETS = [
     {"id": "aaa", "name": "normal", "system_prompt": None,
      "params": {"temperature": 1.2, "max_tokens": 16000, "top_p": 0.95, "enable_thinking": True}},
