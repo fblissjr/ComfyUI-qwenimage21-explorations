@@ -93,12 +93,12 @@ the line starts from the right place rather than from the top.
   current backend, so a stratified corpus is not a quick loop. Prefer the
   greedy configuration for anything being compared.
 
-- **Whether t2i should keep the official 25 steps is an open question for the
-  owner.** Every other implementation defaults higher, the t2i half of the
-  step sweep is withdrawn, and the Sigmas fix it ran under is in. A re-sweep of
-  25 against the reference default is the evidence that would settle it.
-  [`sampling.md`](sampling.md) section 2 and [`decisions.md`](decisions.md);
-  `scripts/build_example_workflows.py::STEPS` holds the current value.
+- **Edit's 20 steps rests on one scene.** t2i was re-swept and moved to 40;
+  edit has not been. `scripts/steps_sweep.py --task edit` is the instrument,
+  and it needs prompts in the expander's register: a one-line brief fed
+  straight to the encoder overcooks an edit, which would be measured as a
+  step-count effect. [`sampling.md`](sampling.md) section 2 and
+  [`decisions.md`](decisions.md).
 
 ## Guards that do not exist
 

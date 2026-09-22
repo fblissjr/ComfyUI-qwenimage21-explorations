@@ -19,6 +19,33 @@ Older and finer-grained history is not copied here:
 
 ## 2026-09-22
 
+- **t2i ships 40 steps** (the owner). `scripts/steps_sweep.py` found t2i still
+  converging at the official 25 on both canvases it ran, with the extra steps
+  refining detail rather than recomposing. 40 is every other implementation's
+  default. Edit stays at 20 pending its own sweep.
+  `python scripts/steps_sweep.py --report data/steps_sweep/2026-09-22`;
+  [`sampling.md`](sampling.md) section 2.
+
+- **Every generated graph carries `QwenImage21SageAttention`** (the owner),
+  because it is how the owner renders; before this the API templates the
+  owner's front end loads had no sage at all. It is `auto` in the API
+  templates and `off` in `example_workflows/`, because the node raises without
+  the Ada fork and the example graphs are for anyone. Every sage mode stayed
+  far closer to no sage than 25 steps is to 40, and every mode rendered
+  somewhat faster than no sage; the modes differ little from each other, so
+  `auto` stands and `sage_masked` stays off.
+  `python scripts/steps_sweep.py --report data/steps_sweep/2026-09-22_sage_modes`.
+
+- **A crunchy edit was the prompt, not the graph.** An edit probe with a
+  one-line brief on a photographic reference came back overcooked. The owner's
+  earlier good edit, re-run from its embedded graph, reproduced pixel for
+  pixel both as recorded and through today's canvas path, so the canvas change
+  broke nothing. Core's own `KSampler` schedule overcooked the same brief just
+  as much, so it was not the Sigmas node. The same reference with an edit
+  prompt in the expander's register came back clean. One seed per arm: a
+  direction, not a rate. What it changes is how edit is measured
+  ([`next_steps.md`](next_steps.md)). The expander is not made the default.
+
 - **Corrected: DiffSynth-Studio and sglang default to 40 steps, not the
   caller's.** [`sampling.md`](sampling.md) section 2 said both left steps to
   the caller. Each defaulted to 40 with guidance off at the revision the page

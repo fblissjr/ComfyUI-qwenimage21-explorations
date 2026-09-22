@@ -34,15 +34,18 @@ HEYLOOK = "http://localhost:8080"
 #: so this is the prefix for the deliberate case.
 API_SAVE_PREFIX = "qwenimage_app_output/qwen_image_2.1"
 
-#: Steps, by mode. t2i keeps the official Comfy-Org figure; edit drops below it.
-#:
-#: A sweep of 16/20/25/30/40 on 2026-09-20, one scene each, found edit with a
-#: reference barely moves across the whole range, which is what 20 rests on.
-#: Its t2i half is withdrawn (2026-09-20): those graphs sampled on the Sigmas
-#: node's misread of EmptyLatentImage's grid, so t2i's "still moving at 20" is
-#: unsupported until re-swept. t2i's 25 is the official figure and never
-#: rested on it. docs/wiki/sampling.md, docs/wiki/decisions.md.
-STEPS = {"t2i": 25, "edit": 20}
+#: Steps, by mode. t2i at 40, the default of every other implementation, set by
+#: the owner on 2026-09-22 after `scripts/steps_sweep.py` found t2i still
+#: converging at the official 25 on both canvases it ran
+#: (`--report data/steps_sweep/2026-09-22`). Edit's 20 rests on a 2026-09-20
+#: sweep of one scene, pending the edit sweep. docs/wiki/sampling.md,
+#: docs/wiki/decisions.md.
+STEPS = {"t2i": 40, "edit": 20}
+#: `QwenImage21SageAttention`'s mode, by output. The node is in every graph
+#: because it is how the owner renders, but it raises without the Ada fork of
+#: SageAttention, so the shared example graphs ship it off -- one widget to turn
+#: on -- and only the API templates the owner's front end loads ship `auto`.
+SAGE_MODE = {"example": "off", "api": "auto"}
 #: Mirrors the reference runner's per-image cap, which is also the node's default.
 #: Set it to 0 in a graph that sizes its references upstream -- docs/wiki/sizing.md.
 PE_MAX_PIXELS = 1024 * 1024
@@ -53,6 +56,7 @@ WIDGETS = {
     "CLIPLoader": ["clip_name", "type", "device"],
     "VAELoader": ["vae_name"],
     "QwenImage21Cache": ["device", "dtype"],
+    "QwenImage21SageAttention": ["sage_mode", "min_kv_len", "sage_masked", "verbose"],
     "EmptyLatentImage": ["width", "height", "batch_size"],
     "RandomNoise": ["noise_seed", "control_after_generate"],
     "CFGGuider": ["cfg"],
@@ -179,7 +183,8 @@ def common(g: Graph, *, edit: bool):
     return unet, cache, clip, vae
 
 
-def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_pe") -> dict:
+def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_pe",
+          sage_mode: str = SAGE_MODE["example"]) -> dict:
     g = Graph()
     _, cache, clip, vae = common(g, edit=edit)
     g.add("MarkdownNote", (40, 600), [NOTE], size=(460, 420), title="Note: prompt expansion")
@@ -247,7 +252,6 @@ def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_
     for name, type_ in (("model", "MODEL"), ("positive", "CONDITIONING"), ("negative", "CONDITIONING")):
         g.sock(guider, name, type_)
     g.out(guider, "GUIDER", "GUIDER")
-    g.link((cache, 0), (guider, 0), "MODEL")
     g.link((enc, 0), (guider, 1), "CONDITIONING")
     g.link((enc, 1), (guider, 2), "CONDITIONING")
 
@@ -315,6 +319,13 @@ def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_
     g.sock(save, "images", "IMAGE")
     g.out(save, "images", "IMAGE")     # an output node still declares one; the official graphs carry it
     g.link((dec, 0), (save, 0), "IMAGE")
+
+    # Added last so every earlier node keeps the id it had before sage joined.
+    sage = g.add("QwenImage21SageAttention", (480, 400), [sage_mode, 1024, False, True], size=(380, 200))
+    g.sock(sage, "model", "MODEL")
+    g.out(sage, "MODEL", "MODEL")
+    g.link((cache, 0), (sage, 0), "MODEL")
+    g.link((sage, 0), (guider, 0), "MODEL")
     return g.json()
 
 
@@ -455,7 +466,7 @@ def main() -> int:
         # nodes is re-authoring the graph, and these are snapshots.
         for name, edit, pe in (("qi21_t2i", False, False), ("qi21_t2i_pe", False, True),
                                ("qi21_edit", True, False), ("qi21_edit_pe", True, True)):
-            doc = build(edit, pe, save_prefix=API_SAVE_PREFIX)
+            doc = build(edit, pe, save_prefix=API_SAVE_PREFIX, sage_mode=SAGE_MODE["api"])
             errs = validate(doc)
             for e in errs:
                 print(f"{name}: {e}", file=sys.stderr)

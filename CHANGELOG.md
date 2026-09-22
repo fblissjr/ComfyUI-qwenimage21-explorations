@@ -27,6 +27,16 @@
   summary table from its results file, so the numbers are reprinted rather
   than copied.
 
+### Changed
+
+- Every generated graph carries `QwenImage21SageAttention` between the cache
+  and the guider: `auto` in the API templates the owner's front end loads,
+  `off` in `example_workflows/`, because the node raises without the Ada fork
+  of SageAttention. It is added last, so every other node keeps its id.
+  Regenerate any copy, and resync the front end's templates.
+- t2i graphs sample 40 steps instead of the official 25; edit stays at 20.
+  `docs/wiki/decisions.md` has the evidence and the command that reprints it.
+
 ## 0.2.0
 
 ### Added

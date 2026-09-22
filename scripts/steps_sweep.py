@@ -7,9 +7,9 @@ still moving toward the 40-50 every other implementation defaults to
 contact sheets are the quality evidence, and choosing `STEPS` stays the
 owner's call.
 
-The graph is `build_example_workflows.py`'s plain t2i graph, with
-`QwenImage21SageAttention` (`sage_mode=auto`) inserted between the cache and
-the guider, because that is how the owner renders: sage comes from this
+The graph is `build_example_workflows.py`'s plain t2i graph, with its
+`QwenImage21SageAttention` node set to `auto`, because that is how the owner
+renders: sage comes from this
 repo's node, never from `--use-sage-attention`. Prompts are the generated t2i
 entries in `prompt_bank/`, body verbatim, each sized through
 `canvas.choose` from its own `wh_ratio`. So the two prompts run on two
@@ -21,8 +21,8 @@ layout and subject scale, which is where the withdrawn 2026-09-20 sweep put
 most of its t2i gap.
 
 `--sage-modes` turns the same grid into the A/B `sage.py` names as missing.
-Each mode is one of `sage.MODES`, `off` (the node left out, so ComfyUI's own
-attention), or a mode with `+masked` appended to set `sage_masked`. When `off`
+Each mode is one of `sage.MODES`, `off` (the node passes the model through,
+so ComfyUI's own attention), or a mode with `+masked` appended to set `sage_masked`. When `off`
 is in the list, every other mode is also compared with `off` at the same step
 count. That distance is sage's own error, to be read against the gap between
 step counts. `--reference 0` skips the high-step render.
@@ -75,7 +75,6 @@ sys.path.insert(0, str(REPO / "scripts"))
 import build_example_workflows as bew  # noqa: E402
 from qwenimage21_explorations import canvas  # noqa: E402
 
-SAGE_ID = "90"
 FIRED = "[qwen21-sage] fired"
 DECLINED = "[qwen21-sage] sage declined or raised"
 
@@ -101,13 +100,8 @@ def graph(prompt: str, width: int, height: int, steps: int, seed: int, prefix: s
         api[by_type["EmptyLatentImage"]]["inputs"].update(width=width, height=height)
     api[by_type["QwenImage21Sigmas"]]["inputs"]["steps"] = steps
     api[by_type["RandomNoise"]]["inputs"]["noise_seed"] = seed
-    if mode == "off":
-        return api
     name, masked = mode.removesuffix("+masked"), mode.endswith("+masked")
-    cache = by_type["QwenImage21Cache"]
-    api[SAGE_ID] = {"class_type": "QwenImage21SageAttention",
-                    "inputs": {"model": [cache, 0], "sage_mode": name, "sage_masked": masked}}
-    api[by_type["CFGGuider"]]["inputs"]["model"] = [SAGE_ID, 0]
+    api[by_type["QwenImage21SageAttention"]]["inputs"].update(sage_mode=name, sage_masked=masked)
     return api
 
 

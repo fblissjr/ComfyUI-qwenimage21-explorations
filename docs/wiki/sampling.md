@@ -34,19 +34,27 @@ the work per step.
 **On steps, ComfyUI's official graph is the outlier and it is a deliberate
 one.** Every other implementation defaults higher: diffusers, LightX2V,
 DiffSynth-Studio and sglang to 40, vllm-omni's branch to 50. The Comfy-Org
-graph ships 25. Nothing here establishes which is better, and the example
-graphs follow the official ComfyUI value because that is the graph they are
-modelled on. *(Corrected 2026-09-22: this table gave DiffSynth-Studio's and
+graph ships 25. **This repo's t2i graphs now ship 40** (the owner,
+2026-09-22), after a sweep found t2i still converging at 25. *(Corrected 2026-09-22: this table gave DiffSynth-Studio's and
 sglang's steps as the caller's. Both already defaulted to 40 at the revisions
 [`references.md`](references.md) records, so the outlier was starker than the
 page said. See [`decisions.md`](decisions.md).)*
 
-**What a sweep did establish is that edit with a reference barely moves across
-16 to 40.** Its t2i half is *withdrawn, 2026-09-20*: the t2i graphs sampled on
-a schedule set for four times their canvas (the Sigmas node read
-`EmptyLatentImage`'s grid raw, see [`decisions.md`](decisions.md)), so the
-claim that t2i was still moving at 20 is unsupported until re-swept. **The
-templates carry one value per mode** rather than the official graph's single
+**t2i has not converged at 25, on either canvas swept.**
+`scripts/steps_sweep.py` rendered the two generated t2i prompts, three seeds
+each, at several step counts against a high-step reference, with the owner's
+sage node in the graph. Distance to the reference falls at every step count
+up to 50, with no plateau at 25, and falls at the layout scale as well as at
+full resolution. By eye the extra steps refine detail and leave the
+composition alone. Cost grows linearly with steps. Conditions, gates and the
+table: `python scripts/steps_sweep.py --report data/steps_sweep/2026-09-22`.
+This replaces the 2026-09-20 sweep's t2i half, which is *withdrawn*: those
+graphs sampled on a schedule set for four times their canvas (see
+[`decisions.md`](decisions.md)).
+
+**What the 2026-09-20 sweep did establish is that edit with a reference
+barely moves across 16 to 40**, on one scene. **The templates carry one value
+per mode** rather than the official graph's single
 figure —
 `scripts/build_example_workflows.py::STEPS` holds them, and the reasoning and
 its limits are in [`decisions.md`](decisions.md). Conditions and the caveats are in
