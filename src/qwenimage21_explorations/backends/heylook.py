@@ -239,10 +239,12 @@ def generate(
         delivered = True
         # One line per expansion so a slow one can be attributed without a
         # re-run: prefill scales with images x pixels, decode with the trace.
-        # The server's clock starts once the body is received and parsed, so
-        # transport is outside total_ms on every path; wire_ms is what this
-        # side's wall clock adds to it -- upload, download and the server's
-        # parse -- and is what would show a relayed hop making payloads costly.
+        # The server's clock starts after the request body is parsed and stops
+        # before the response is serialized, so transport is outside total_ms
+        # on every path. wire_ms is what this side's wall clock adds: upload,
+        # download, and the server's parse and serialization -- a share, not a
+        # pure transfer time. It is what would show a relayed hop making
+        # payloads costly; compare it with loopback, not with zero.
         total_ms = out.performance.get("request_duration_ms")
         logging.info(
             "[heylook] %s tokens in=%d out=%d prefill_ms=%s decode_ms=%s total_ms=%s wire_ms=%s stop=%s",

@@ -38,7 +38,9 @@
 
 - The `[heylook]` log line carries `wire_ms`: the node's wall time around the
   request minus the server's `request_duration_ms`. The server's clock starts
-  after the body is parsed, so transport is invisible to it; this is where a
+  after the body is parsed and stops before the response is serialized, so
+  transport is invisible to it. `wire_ms` is upload, download and that parse
+  and serialization together -- a share, not a pure transfer time, and where a
   slow hop would show. `None` when the server sends no duration.
 - Every generated graph carries `QwenImage21SageAttention` between the cache
   and the guider: `auto` in the API templates the owner's front end loads,
