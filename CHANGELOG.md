@@ -12,6 +12,15 @@
   of the wall time, so a slow expansion is attributable from the log alone.
   A server without the object reports `None`, not zero.
 
+- `scripts/steps_sweep.py` sweeps t2i step counts on a running ComfyUI, the
+  way the owner renders: the plain t2i graph with `QwenImage21SageAttention`
+  inserted, the generated `prompt_bank/` t2i prompts verbatim, each at its own
+  canvas. Every arm is compared with a high-step reference at full and at
+  1/16 resolution, and a contact sheet is written per prompt and seed. The
+  results file records the run conditions, a byte-identical repeat render, and
+  the sage `fired` lines, so a silent fallback or nondeterminism shows up in
+  the record. It measures convergence, not quality, and leaves `STEPS` alone.
+
 ## 0.2.0
 
 ### Added

@@ -75,8 +75,11 @@ ungraded on 2.1.
 
 ## Unmeasured
 
-Nothing here has been run on a GPU. There is no A/B and no speed claim for this
-model. What would produce one: the same graph at a fixed seed and canvas with
+It has run on a GPU: `scripts/smoke_sage.py` checks the kernels at 2.1's
+shapes, and `scripts/steps_sweep.py` renders full graphs with this node in
+them, recording the `fired` log lines and a byte-identical repeat render in its
+results file. On Ada, `auto` fired `fp8_cuda++` with no fallback. There is
+still no A/B and no speed claim for this model. What would produce one: the same graph at a fixed seed and canvas with
 `sage_mode` at `auto` and at `off`, plus a `get_dispatch_counts()` snapshot
 before and after each render, so the arms are distinguishable by something
 other than the wall clock. A second pair with `QwenImage21Cache` set to
