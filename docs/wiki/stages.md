@@ -1,6 +1,6 @@
 # One expansion, stage by stage: code, owner, guard, reference
 
-last updated: 2026-09-20
+last updated: 2026-09-22
 
 The cross-index. For each stage of turning a user's brief into a rewritten
 prompt: **our code**, the **document that owns** it, the **check that would go
@@ -26,7 +26,7 @@ each checkout is and is not evidence of.
 | stage | our code | owner | guard | compare against |
 |---|---|---|---|---|
 | system prompt resolution | `templates.py::resolve`, the `PESystemPrompt` node | the module docstring; [`../../templates/README.md`](../../templates/README.md) | `tests/test_templates.py` covers the order, including where a server preset sits in it. Written 2026-09-20; this cell read **nothing** until then | `coderef/Qwen-Image-2.1/prompt_rewrite/pe_core.py::load_system_prompt`, which it mirrors deliberately |
-| sampling settings | `profiles.py` | the module docstring | **nothing** reads `PROFILES` back against upstream. A drift there is silent and reads downstream as a model problem | `pe_core.py::PROFILES`. Both backends' own defaults differ from it — [`../quantization-strategy.md`](../quantization-strategy.md) section 17 |
+| sampling settings | `profiles.py` | the module docstring | `tests/test_profiles_match_upstream.py` reads `PROFILES` back against `pe_core.py` with `ast`, and skips where `coderef/` is absent. *(Corrected 2026-09-22: this cell said nothing did; the test went in with `69c39a5` on 2026-09-20)* | `pe_core.py::PROFILES`. Both backends' own defaults differ from it — [`../quantization-strategy.md`](../quantization-strategy.md) section 17 |
 | chat string | `chat.py::render_generation_prompt`, the `PEPrompt` node | the module docstring | `tests/test_chat.py` pins the two places ComfyUI's bundled template diverges from the trained format; `tests/test_prompt_structure.py` asserts on the final string rather than on the flags that produced it, which is the shape of check the predecessor's double-wrap bug needed | each checkpoint's own `chat_template.jinja` |
 | reference image sizing | **not ours.** Core's `TextEncodeQwenImage21` does one shared resize, then core's encoder path resizes again | [`sizing.md`](sizing.md) | **nothing.** No check compares the two views, and by the time they could differ the count that would reveal it has been dropped | [`sizing.md`](sizing.md)'s posture table: two implementations make it impossible, two raise |
 | image token accounting | `vision.py` | the module docstring; [`../quantization-strategy.md`](../quantization-strategy.md) section 25 for how the arithmetic was checked against a live server | `tests/test_vision.py`, pinned against values verified live | each checkpoint's `processor_config.json` |

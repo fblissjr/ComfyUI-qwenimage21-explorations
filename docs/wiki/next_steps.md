@@ -1,6 +1,6 @@
 # Next steps
 
-last updated: 2026-09-20
+last updated: 2026-09-22
 
 **A written page, not generated. It says what to do next and where the
 reasoning lives; it restates none of it.** Kept to pointers on purpose: when it
@@ -60,7 +60,8 @@ the line starts from the right place rather than from the top.
   a note rather than a watch.
 - **Expander integration is a solved shape in at least one serving engine, and
   unclaimed here.** vllm-omni's `prompt_expand_func` is an engine-level hook
-  that other model families register and Qwen-Image does not —
+  that other model families register and Qwen-Image does not, including the
+  unmerged branch that implements 2.1 —
   [`upstream.md`](upstream.md) section 4. Nothing says this repo should build
   that; it says the design question has a worked answer to read before anyone
   invents one.
@@ -92,6 +93,13 @@ the line starts from the right place rather than from the top.
   current backend, so a stratified corpus is not a quick loop. Prefer the
   greedy configuration for anything being compared.
 
+- **Whether t2i should keep the official 25 steps is an open question for the
+  owner.** Every other implementation defaults higher, the t2i half of the
+  step sweep is withdrawn, and the Sigmas fix it ran under is in. A re-sweep of
+  25 against the reference default is the evidence that would settle it.
+  [`sampling.md`](sampling.md) section 2 and [`decisions.md`](decisions.md);
+  `scripts/build_example_workflows.py::STEPS` holds the current value.
+
 ## Guards that do not exist
 
 Not a to-do list — the repo's habit is that a new check needs a real instance it
@@ -99,9 +107,11 @@ would have caught. Recorded so that nobody reads an unguarded thing as guarded.
 [`stages.md`](stages.md)'s guard column is the full table; these are the ones a
 reader is most likely to assume are covered.
 
-- **`templates.py`'s resolution order** and **`profiles.py`'s reference values
-  against upstream**. Both are conventions the code implements, and a drift in
-  either is silent and reads downstream as a model problem.
+- **`templates.py`'s resolution order against upstream.** `tests/test_templates.py`
+  pins our order, not `pe_core.py::load_system_prompt`'s, so a change upstream
+  is silent and reads downstream as a model problem. *(Corrected 2026-09-22:
+  this line also listed `profiles.py` against upstream, which
+  `tests/test_profiles_match_upstream.py` has guarded since 2026-09-20.)*
 - **The ComfyUI generation path.** No test exercises it; what makes our string
   authoritative there is a `startswith` test inside ComfyUI's own tokenizer.
   `tests/test_prompt_structure.py` pins the properties that test depends on,

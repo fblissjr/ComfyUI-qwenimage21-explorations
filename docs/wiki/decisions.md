@@ -1,6 +1,6 @@
 # Decisions, withdrawals and corrections
 
-last updated: 2026-09-20
+last updated: 2026-09-22
 
 Written by hand. One entry per decision the owner made, or per claim that was
 corrected or withdrawn: what changed, what it used to say, where it lives now.
@@ -15,10 +15,46 @@ Older and finer-grained history is not copied here:
   in place rather than editing them away**. Section 21 against section 20 is
   the worked example. Read a section together with anything that cites it.
 
-**This repo is days old and everything below happened on one day.** The single
-date heading is accurate, not an artifact of a young page.
-
 ---
+
+## 2026-09-22
+
+- **Corrected: DiffSynth-Studio and sglang default to 40 steps, not the
+  caller's.** [`sampling.md`](sampling.md) section 2 said both left steps to
+  the caller. Each defaulted to 40 with guidance off at the revision the page
+  cites, and still does: DiffSynth's `QwenImage21Pipeline.__call__` and
+  sglang's `QwenImage21SamplingParams`. vllm-omni's 2.1 branch defaults to 50.
+  So the official ComfyUI graph's 25 is lower than every other
+  implementation's default, not only lower than diffusers' and LightX2V's.
+  **No value changed.** `scripts/build_example_workflows.py::STEPS` stays the
+  owner's decision, and whether t2i should move is an open item in
+  [`next_steps.md`](next_steps.md).
+
+- **Corrected: vllm-omni does implement 2.1, on an unmerged branch.**
+  [`upstream.md`](upstream.md) and [`references.md`](references.md) said it had
+  no 2.1 support. That is true of its main line. The `origin/qwen-image-2.1`
+  branch carries a pipeline that meets the conditioning contract as far as it
+  was read. What the pages used it for still stands: that branch registers no
+  `prompt_expand_func` either.
+
+- **Qualified: "all five agree" on block structure held for DiffSynth-Studio
+  only on its flex-attention path.** Its fallback ran the prefix fully causal
+  until upstream `7686e54`. The same commit makes DiffSynth the second
+  implementation, after ComfyUI core, to split the block-causal pass into one
+  attention call per segment, sending masked calls to SDPA and unmasked calls
+  to its fast kernels. That is the split `sage.py` relies on, and the same
+  routing as its default, reached independently. [`upstream.md`](upstream.md)
+  sections 2 and 3.
+
+- **Corrected: two guard claims were stale.** [`stages.md`](stages.md) and
+  [`next_steps.md`](next_steps.md) said nothing reads `PROFILES` back against
+  upstream. `tests/test_profiles_match_upstream.py` has done so since
+  2026-09-20. The template resolution order against upstream is still
+  unguarded, and `next_steps.md` now says only that.
+
+- **Corrected: DiffSynth-Studio's checkout is not a tag.**
+  [`references.md`](references.md) said it would move only when a release
+  landed. It tracks `main`.
 
 ## 2026-09-20
 

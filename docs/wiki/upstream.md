@@ -1,13 +1,15 @@
 # How the other implementations run 2.1
 
-last updated: 2026-09-20
+last updated: 2026-09-22
 
 Six checkouts were read on 2026-09-20 on two questions: how a text-to-image
 request is built, and what changes when condition images are added. **Five of
-them implement Qwen-Image 2.1**; vllm-omni does not, at the revision read, and
-appears here only in section 4 where its absence is the finding. The revisions
-read are in [`references.md`](references.md), and they moved under this page
-the same day it was written — re-read before quoting.
+them implement Qwen-Image 2.1 on their main line.** vllm-omni implements it
+only on an unmerged branch, found on 2026-09-22; it appears in section 4, where
+what that branch leaves out is the finding. The revisions read are in
+[`references.md`](references.md), and they moved under this page the same day
+it was written — re-read before quoting. The 2026-09-22 re-read covered only
+what changed in the 2.1 files since; its corrections are marked in place.
 
 **This is the wiki's one owner page.** Every other page routes to a document
 under `docs/` that owns its facts. This one states them, because no document
@@ -88,8 +90,8 @@ mechanism for everyone and will do it quietly.
 | the hazard this creates | letting the processor resize again after your own resize can change the slot count. The five take **four different postures** toward it, and that is [`sizing.md`](sizing.md)'s subject |
 | transparency | the image is taken as RGBA. The alpha is composited over white **for the vision tower only**; the VAE keeps all four channels. **All five do this**, ComfyUI core in `TextEncodeQwenImage21` itself *(corrected 2026-09-20: this row previously said ComfyUI was the exception, which was wrong — the node does it inline and says so in a comment)* |
 | condition latents | VAE-encoded, normalized by per-channel mean and std, packed, and concatenated into **one joint sequence** with the target. Not a side channel |
-| block structure | block-causal: each image block is internally bidirectional, later blocks and the target attend to earlier ones. **Block boundaries come from the shape list, not from runs in the image mask** — two adjacent condition images form one run and must stay two blocks, or they would attend to each other bidirectionally |
-| static prefix | text and condition-image keys and values do not change across steps, so the first step prefills them and later steps recompute only the target's tokens. diffusers and sglang both carry a cache for this; in ComfyUI it is a node |
+| block structure | block-causal: text is causal, each image block is internally bidirectional, later blocks and the target attend to earlier ones. **Block boundaries come from the shape list, not from runs in the image mask** — two adjacent condition images form one run and must stay two blocks, or they would attend to each other bidirectionally. *(Qualified 2026-09-22: DiffSynth-Studio agreed only on its flex-attention path at the revision read. Without flex, its fallback ran the whole prefix fully causal, so image blocks were not bidirectional inside. Fixed upstream in `7686e54`, which also removed its `causal_block` option; block-causal is now its only structure)* |
+| static prefix | text and condition-image keys and values do not change across steps, so the first step prefills them and later steps recompute only the target's tokens. diffusers and sglang both carry a cache for this; in ComfyUI it is a node. **The cache is per layer, and a block wrapper can silently break that**: sglang's Cache-DiT wrap passed every layer the same arguments, so every layer read layer 0's prefix and the image came out as noise (fixed in `b912db67ea`). ComfyUI core avoids the class by switching its prefix cache off whenever a block patch is installed (`comfy/ldm/qwen_image21/model.py`, the `hooked` guard), which costs speed and nothing warns |
 
 ## 3. Where they genuinely diverge
 
@@ -106,6 +108,23 @@ different thing in the encoder's output sequence and expands it somewhere else:
 
 Same destination, three sets of bookkeeping. This matters when porting: an
 index or a count taken from one of them means something different in another.
+
+**How the block-causal pass is split into attention calls — two of them now
+agree, and it is the split this repo's sage node relies on.** ComfyUI core
+(`block_causal_attention`) and, since `7686e54`, DiffSynth-Studio
+(`_qwenimage21_prefix_segments` and the attention processor's split route)
+both run one attention call per segment against the keys up to that segment's
+end. Text segments carry a causal mask, built identically in both. Image
+segments and the target carry none beyond key padding. With the prefix cached,
+both run the target as one unmasked call over the cached prefix and the target.
+**DiffSynth's dispatcher then does by construction what
+[`../../src/qwenimage21_explorations/sage.py`](../../src/qwenimage21_explorations/sage.py)
+does by policy**: `attention_forward` sends any call carrying a mask to torch
+SDPA or flex, and only unmasked calls reach its fast kernels (FlashAttention or
+SageAttention). So the fast kernel takes the image and target calls, and the
+short masked text calls go to SDPA. Our default with `sage_masked` off makes
+the same cut, leaving the masked calls on ComfyUI's own attention; DiffSynth
+reached it independently.
 
 **ComfyUI core has a mode the others do not expose.** Its `keep_vision` option
 keeps the vision tokens in the conditioning, so an image conditions **through
@@ -126,9 +145,19 @@ carries a first-class one: `prompt_expand_func`, a hook the engine collects
 from whichever stage client provides it
 (`coderef/vllm-omni/vllm_omni/engine/omni_engine_base.py`). Several model
 families register one — Bagel, Ming-Flash-Omni, MiniMax-Music3, Audex. **The
-Qwen-Image pipelines register none**, and that checkout has no Qwen-Image 2.1
-support at all at the revision read, so it is not an implementation of this
-model so much as evidence about the shape of the gap.
+Qwen-Image pipelines register none.**
+
+*(Updated 2026-09-22.)* vllm-omni's main line still has no 2.1 support. 2.1
+lives on the unmerged `origin/qwen-image-2.1` branch, with a pipeline under
+`vllm_omni/diffusion/models/qwen_image_21/` and a recipe at
+`recipes/Qwen/Qwen-Image-2.1.md`. That branch meets section 1's contract as
+far as it was read: the same system sentence, a drop index taken from the
+tokenized system turn, a forward hook on the final norm that returns the
+norm's input, one resize feeding both the encoder and the VAE, and RGBA
+condition images. **It still registers no expander.** A search of the
+branch's whole diff against main finds no `prompt_expand` at all. So the one
+engine that has the hook has now implemented this model without using it,
+which makes the gap sharper, not smaller.
 
 So the mechanism is proven in a serving engine and nobody has pointed it at
 this model family. That is the gap this repo's harness sits in, and it explains

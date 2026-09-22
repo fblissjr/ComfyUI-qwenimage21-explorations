@@ -1,6 +1,6 @@
 # Sampling: steps, guidance, and the sigma schedule
 
-last updated: 2026-09-20
+last updated: 2026-09-22
 
 What the example graphs set, where those values come from, and the two places
 ComfyUI's schedule departs from the release. Numbers are not repeated here:
@@ -22,8 +22,9 @@ affine function of the target's latent token count rather than a constant.
 |---|---|---|---|---|
 | diffusers | 40 | off by default | computed from the target latents' length | applied by its scheduler |
 | LightX2V | 40 (config) | off (`enable_cfg: false`) | computed, in its own scheduler | applied explicitly |
-| DiffSynth-Studio | caller's | caller's | computed, passed as `dynamic_shift_len` | its scheduler's |
-| sglang | caller's | off by default | computed from the canvas | its cloned scheduler's |
+| DiffSynth-Studio | 40 (`pipelines/qwen_image_21.py::QwenImage21Pipeline.__call__`) | off (`cfg_scale` defaults to 1) | computed, passed as `dynamic_shift_len` | its scheduler's |
+| sglang | 40 (`configs/sample/qwenimage21.py::QwenImage21SamplingParams`) | off by default | computed from the canvas | its cloned scheduler's |
+| vllm-omni, unmerged `qwen-image-2.1` branch | 50 (the pipeline's fallback, and its recipe's) | off (`true_cfg_scale` defaults to 1) | computed from the target's packed latent length | the checkpoint's scheduler, loaded as shipped |
 | **ComfyUI** | **25** in the official graph | off (`cfg 1.0`) | **a constant**, `supported_models.py::QwenImage21`'s `sampling_settings["shift"]` | **absent from ComfyUI entirely** |
 
 **Guidance is off everywhere, and that is not a default anyone should change
@@ -31,9 +32,14 @@ casually** — 2.1 is meant to be sampled without it, and turning it on doubles
 the work per step.
 
 **On steps, ComfyUI's official graph is the outlier and it is a deliberate
-one.** diffusers and LightX2V ship 40; the Comfy-Org graph ships 25. Nothing
-here establishes which is better, and the example graphs follow the official
-ComfyUI value because that is the graph they are modelled on.
+one.** Every other implementation defaults higher: diffusers, LightX2V,
+DiffSynth-Studio and sglang to 40, vllm-omni's branch to 50. The Comfy-Org
+graph ships 25. Nothing here establishes which is better, and the example
+graphs follow the official ComfyUI value because that is the graph they are
+modelled on. *(Corrected 2026-09-22: this table gave DiffSynth-Studio's and
+sglang's steps as the caller's. Both already defaulted to 40 at the revisions
+[`references.md`](references.md) records, so the outlier was starker than the
+page said. See [`decisions.md`](decisions.md).)*
 
 **What a sweep did establish is that edit with a reference barely moves across
 16 to 40.** Its t2i half is *withdrawn, 2026-09-20*: the t2i graphs sampled on
@@ -54,6 +60,8 @@ the reference images, not their count, not their shapes, not the encoder, not
 the step count. All four implementations were read on this point and all four
 feed it the target only — diffusers the target latents' own length, sglang and
 LightX2V the target canvas, DiffSynth the target latents' height times width.
+vllm-omni's branch, read 2026-09-22, makes five: the packed target latents'
+length (`prepare_timesteps`).
 Reference latents ride in the same joint sequence but never enter the schedule.
 
 ## 3. ComfyUI's two departures

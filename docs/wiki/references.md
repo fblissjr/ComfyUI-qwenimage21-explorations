@@ -1,6 +1,6 @@
 # The checkouts under `coderef/`: what each one is good for
 
-last updated: 2026-09-20
+last updated: 2026-09-22
 
 `coderef/` holds the reference checkouts. `ls -l coderef/` is the list of what
 is currently on disk — some symlinks, some real clones — and this page is what
@@ -26,9 +26,10 @@ the package and no checkout.
 the date in this page's header. A checkout moves under you; re-read before
 quoting. Every checkout here was pulled on 2026-09-20 *after* the first read of
 that day, and the revisions in the implementation table are the post-pull tips.
-**A tag and a tip rot differently**: DiffSynth-Studio's row is a release tag and
-moves only when a release lands; the rest are branch tips and move whenever
-their authors push.
+Every row is now a branch tip and moves whenever its authors push.
+*(Corrected 2026-09-22: DiffSynth-Studio was read at a release tag, and this
+paragraph said it would move only when a release landed. The checkout tracks
+`main`, and its tip on 2026-09-22 is a commit no tag contains.)*
 
 ---
 
@@ -47,21 +48,29 @@ the first row above.
 
 ## The 2.1 implementations
 
-Five checkouts implement Qwen-Image 2.1 end to end. What they agree on, where
+Four checkouts implement Qwen-Image 2.1 end to end on their main line, and
+vllm-omni does on an unmerged branch. What they agree on, where
 they diverge, and what none of them does is [`upstream.md`](upstream.md), which
-this page routes to rather than restating. Revisions read 2026-09-20:
+this page routes to rather than restating. Revisions read 2026-09-20 in full.
+On 2026-09-22 each was re-read only for what changed in its 2.1 files since
+that read, up to the tip in the second column:
 
-| checkout | revision read | what it is | reach for it when |
-|---|---|---|---|
-| `coderef/diffusers` | `80c7ed262` (tip) | the canonical namespace and the clearest-commented pipeline. Its `QwenImage21Pipeline` and `QwenImage21Transformer2DModel` are the reference of record for tensor names and for the joint-sequence layout | you need a clean statement of what a stage does, or the constant behind a mechanism |
-| `coderef/sglang` | `d229952e25` (tip; the 2.1 files' own last change is `031bff5dd3`) | **the vendor-adjacent serving path**, staged rather than monolithic, with its own layout precomputation | you want the serving shape of a stage, or a second opinion on conditioning bookkeeping |
-| `coderef/DiffSynth-Studio` | `d2d684a`, release **tag** v2.1.8 | a native 2.1 pipeline with its own converters and a training path | you need a second opinion on a state-dict namespace, or a converter |
-| `coderef/LightX2V` | `8d0c1a5f` (tip) | inference engine with a hand-written encoder stack and quantized DiT recipes. Carries a named hazard about double-resizing that the others only imply | anything about quantized execution of 2.1, or the resize contract |
-| `coderef/vllm-omni` | `e36babd48` (tip) | **no Qwen-Image 2.1 support at this revision.** It is here for one thing: it has an engine-level `prompt_expand_func` hook, used by other model families and registered by none of its Qwen-Image pipelines | you are arguing about whether expander integration is a solved shape in serving engines. It is, and nobody pointed it at this model |
+| checkout | revision read | re-read to, 2026-09-22 | what it is | reach for it when |
+|---|---|---|---|---|
+| `coderef/diffusers` | `80c7ed262` (tip) | `8b3c707eb`: no 2.1 file changed | the canonical namespace and the clearest-commented pipeline. Its `QwenImage21Pipeline` and `QwenImage21Transformer2DModel` are the reference of record for tensor names and for the joint-sequence layout | you need a clean statement of what a stage does, or the constant behind a mechanism |
+| `coderef/sglang` | `d229952e25` (tip; the 2.1 files' own last change is `031bff5dd3`) | `4cbf290fb9`: the per-layer prefix fix under Cache-DiT, a VAE upsample precision change, cookbook updates | **the vendor-adjacent serving path**, staged rather than monolithic, with its own layout precomputation | you want the serving shape of a stage, or a second opinion on conditioning bookkeeping |
+| `coderef/DiffSynth-Studio` | `d2d684a`, release **tag** v2.1.8 | `7686e54` on `main`: the attention routes refactor, which fixed its non-flex mask. [`upstream.md`](upstream.md) section 3 | a native 2.1 pipeline with its own converters and a training path | you need a second opinion on a state-dict namespace, or a converter, or on how the block-causal pass splits into attention calls |
+| `coderef/LightX2V` | `8d0c1a5f` (tip) | `1013f83f`: README only | inference engine with a hand-written encoder stack and quantized DiT recipes. Carries a named hazard about double-resizing that the others only imply | anything about quantized execution of 2.1, or the resize contract |
+| `coderef/vllm-omni` | `e36babd48` (tip) | main `7d6e2ade6`, still without 2.1. Branch `origin/qwen-image-2.1` at `0c82bb131`, unmerged, implements it | **no Qwen-Image 2.1 support on main.** Its 2.1 pipeline is on the unmerged branch, and that branch registers no expander either. It is here for one thing: an engine-level `prompt_expand_func` hook, used by other model families and registered by none of its Qwen-Image pipelines | you are arguing about whether expander integration is a solved shape in serving engines. It is, and nobody pointed it at this model, including the branch that implements it |
 
 The install this node lives in, `ComfyUI/` itself, is the sixth implementation
 and the one that matters most here, because it is the path this repo runs.
-It is not a checkout and is not under `coderef/`.
+It is not a checkout and is not under `coderef/`. The 2026-09-22 re-read
+covered it from `c194dd00` (the read point in
+[`../quantization-strategy.md`](../quantization-strategy.md)) to `b33e2b55`:
+no 2.1 model file changed, and the three official 2.1 workflow templates in
+the installed template package are byte-identical to the copies under
+`internal/reference/official_workflows/`.
 
 ## The tool and the serving path
 
