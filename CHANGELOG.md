@@ -27,6 +27,13 @@
   summary table from its results file, so the numbers are reprinted rather
   than copied.
 
+- `prompt_bank/edit_flag_symbol.md` and `edit_translate_hindi.md`: the other
+  two upstream edit examples, verbatim from the recorded I21 run, so all four
+  upstream samples are in the bank as generated entries. The generated edit
+  entries now name their sample images in a `reference:` field, which the
+  sweep reads; it refuses an edit prompt file without one rather than
+  rendering it as t2i.
+
 ### Changed
 
 - Every generated graph carries `QwenImage21SageAttention` between the cache

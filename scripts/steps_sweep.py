@@ -28,10 +28,11 @@ count. That distance is sage's own error, to be read against the gap between
 step counts. `--reference 0` skips the high-step render.
 
 `--task edit` runs the plain edit graph instead. Each prompt file names its
-reference image in a `reference:` frontmatter field, resolved against
-`--ref-dir` and uploaded to the server's input folder under
-`qi21_steps_sweep/`. The canvas follows the reference, as the graph does
-when no shape is given.
+reference images in a `reference:` frontmatter field, comma-separated in
+`<imageN>` order, resolved against `--ref-dir` and uploaded to the server's
+input folder under `qi21_steps_sweep/`. The file's `wh_ratio` and
+`ratio_follow` go to the canvas node, as "Use these settings" does for an
+expanded run, so the canvas is the one the expander chose.
 
 Gates, recorded with the results rather than assumed:
 - determinism: the first arm is rendered twice, with ComfyUI's execution cache
@@ -86,16 +87,26 @@ def load_prompt(path: Path) -> dict:
         k, _, v = line.partition(":")
         meta[k.strip()] = v.strip().strip('"')
     return {"name": path.stem, "wh_ratio": meta.get("wh_ratio", ""),
-            "reference": meta.get("reference", ""), "prompt": body.strip()}
+            "ratio_follow": meta.get("ratio_follow", ""),
+            "reference": [r.strip() for r in meta.get("reference", "").split(",") if r.strip()],
+            "prompt": body.strip()}
 
 
 def graph(prompt: str, width: int, height: int, steps: int, seed: int, prefix: str,
-          mode: str = "auto", reference: str = "") -> dict:
-    api = bew.to_api(bew.build(bool(reference), False, save_prefix=prefix))
+          mode: str = "auto", references: tuple[str, ...] = (), wh_ratio: str = "",
+          ratio_follow: str = "") -> dict:
+    api = bew.to_api(bew.build(bool(references), False, save_prefix=prefix))
     by_type = {v["class_type"]: k for k, v in api.items()}
-    api[by_type["TextEncodeQwenImage21"]]["inputs"]["prompt"] = prompt
-    if reference:
-        api[by_type["LoadImage"]]["inputs"]["image"] = reference
+    enc = api[by_type["TextEncodeQwenImage21"]]["inputs"]
+    enc["prompt"] = prompt
+    if references:
+        api[by_type["LoadImage"]]["inputs"]["image"] = references[0]
+        can = api[by_type["QwenImage21Canvas"]]["inputs"]
+        can.update(wh_ratio=wh_ratio, ratio_follow=ratio_follow)
+        for i, name in enumerate(references[1:], start=2):
+            nid = str(100 + i)
+            api[nid] = {"class_type": "LoadImage", "inputs": {"image": name}}
+            enc[f"images.image_{i}"] = can[f"images.image_{i}"] = [nid, 0]
     else:
         api[by_type["EmptyLatentImage"]]["inputs"].update(width=width, height=height)
     api[by_type["QwenImage21Sigmas"]]["inputs"]["steps"] = steps
@@ -217,17 +228,21 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0, help="stop after N renders; for timing one")
     ap.add_argument("--sage-modes", default="auto")
     ap.add_argument("--task", choices=["t2i", "edit"], default="t2i")
-    ap.add_argument("--prompts", help="glob of prompt files; default prompt_bank/<task>_*.md")
+    ap.add_argument("--prompts", help="comma-separated globs of prompt files; default prompt_bank/<task>_*.md")
     ap.add_argument("--ref-dir", type=Path, default=Path("."), help="where edit references are")
     args = ap.parse_args()
 
     steps = [int(s) for s in args.steps.split(",")]
     seeds = [int(s) for s in args.seeds.split(",")]
-    files = sorted(Path(f) for f in glob.glob(args.prompts)) if args.prompts else \
+    files = sorted(Path(f) for g in args.prompts.split(",") for f in glob.glob(g)) if args.prompts else \
         sorted(REPO.glob(f"prompt_bank/{args.task}_*.md"))
     prompts = [load_prompt(p) for p in files]
     if not prompts:
         raise SystemExit("no prompt files matched")
+    missing = [p["name"] for p in prompts if args.task == "edit" and not p["reference"]]
+    if missing:
+        # Without references the t2i graph would run and be recorded as edit.
+        raise SystemExit(f"edit prompt files need a reference: field: {missing}")
     args.out.mkdir(parents=True, exist_ok=True)
     rows = open(args.out / "results.jsonl", "a")
 
@@ -259,13 +274,14 @@ def sweep(args, prompts, steps, seeds, rows, seen, since):
     done = 0
     for p in prompts:
         w, h = canvas.choose(p["wh_ratio"], "", 1024, 1024, [], 1024)
-        ref_name = upload(args.server, args.ref_dir / p["reference"]) if args.task == "edit" else ""
+        refs = tuple(upload(args.server, args.ref_dir / r) for r in p["reference"]) if args.task == "edit" else ()
         for seed in seeds:
             arms = {}
             for mode in modes:
                 for n in counts:
                     tag = f"{p['name']}_s{seed}_{slug(mode)}_{n:03d}"
-                    api = graph(p["prompt"], w, h, n, seed, f"qi21_steps_sweep/{tag}", mode, ref_name)
+                    api = graph(p["prompt"], w, h, n, seed, f"qi21_steps_sweep/{tag}", mode, refs,
+                                p["wh_ratio"], p["ratio_follow"])
                     png, seconds = render(args.server, api)
                     if done == 0:
                         call(args.server, "/free", {"free_memory": True})

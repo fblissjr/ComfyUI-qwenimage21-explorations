@@ -33,3 +33,9 @@ Their `note:` fields cite bare filenames that live in whatever directory the
 running ComfyUI resolves `LoadImage` against, so a fresh checkout has the text
 and not the pictures. The text is the point; substitute your own references and
 the structure still holds. Nothing here stores a path.
+
+**The generated edit entries name their upstream sample images** in a
+`reference:` field, bare filenames in `<image1>` order, comma-separated. They
+are the upstream repo's example images, under
+`coderef/Qwen-Image-2.1/prompt_rewrite/data/images/`, and
+`scripts/steps_sweep.py --task edit --ref-dir` reads them from there.
