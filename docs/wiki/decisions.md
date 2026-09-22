@@ -48,11 +48,12 @@ Older and finer-grained history is not copied here:
   `python scripts/steps_sweep.py --report data/steps_sweep/2026-09-22`;
   [`sampling.md`](sampling.md) section 2.
 
-- **Every generated graph carries `QwenImage21SageAttention`** (the owner),
-  because it is how the owner renders; before this the API templates the
-  owner's front end loads had no sage at all. It is `auto` in the API
-  templates and `off` in `example_workflows/`, because the node raises without
-  the Ada fork and the example graphs are for anyone. Every sage mode stayed
+- **Every generated graph carries `QwenImage21SageAttention`, set `off`** (the
+  owner). It first shipped `auto` in the API templates, on the reading that the
+  owner renders with sage; the owner set it off, because the gain is modest and
+  the deviation from exact attention was measured but never judged by eye. The
+  node stays in every graph so the front end can offer it, and one value
+  serves every output, because workflow defaults and app defaults match. Every sage mode stayed
   far closer to no sage than 25 steps is to 40, and every mode rendered
   somewhat faster than no sage; the modes differ little from each other, so
   `auto` stands and `sage_masked` stays off.

@@ -81,8 +81,9 @@ with the prefix cache at its default: every mode against `off` at two step
 counts, two prompts, three seeds, recording the `fired` lines and a
 byte-identical repeat render. Every mode stayed far closer to `off` than 25
 steps is to 40, every mode was somewhat faster than `off`, and the modes
-differed little from each other, so `auto` is the shipped choice and
-`sage_masked` stays off.
+differed little from each other, so `auto` is the mode to pick and
+`sage_masked` stays off. The graphs ship the node `off` (the owner): the gain
+is modest, and the deviation was measured, not judged by eye.
 `python scripts/steps_sweep.py --report data/steps_sweep/2026-09-22_sage_modes`
 reprints it, conditions included.
 

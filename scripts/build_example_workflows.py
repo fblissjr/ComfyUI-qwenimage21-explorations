@@ -42,11 +42,12 @@ API_SAVE_PREFIX = "qwenimage_app_output/qwen_image_2.1"
 #: can change layout below 25 (`--report data/steps_sweep/2026-09-22_edit`).
 #: docs/wiki/sampling.md, docs/wiki/decisions.md.
 STEPS = {"t2i": 40, "edit": 30}
-#: `QwenImage21SageAttention`'s mode, by output. The node is in every graph
-#: because it is how the owner renders, but it raises without the Ada fork of
-#: SageAttention, so the shared example graphs ship it off -- one widget to turn
-#: on -- and only the API templates the owner's front end loads ship `auto`.
-SAGE_MODE = {"example": "off", "api": "auto"}
+#: `QwenImage21SageAttention`'s mode in every graph, off (the owner, 2026-09-22):
+#: sage's gain measured modest and its deviation from exact attention has not
+#: been judged by eye, so it is opt-in. The node is in every graph so the front
+#: end can offer it; it raises without the Ada fork, which `off` never reaches.
+#: One value for every output, because workflow defaults and app defaults match.
+SAGE_MODE = "off"
 #: Mirrors the reference runner's per-image cap, which is also the node's default.
 #: Set it to 0 in a graph that sizes its references upstream -- docs/wiki/sizing.md.
 PE_MAX_PIXELS = 1024 * 1024
@@ -162,9 +163,9 @@ will not conform; `contract_ok` is what reports that.
   the canvas node; the latent's width and height are wired from it.
 - Swap `TextEncodeQwenImage21` for `Qwen-Image 2.1 Encode (structured)` to reach
   the system turn, `keep_vision`, and which reference sets the canvas.
-- `Qwen-Image 2.1 Sage Attention` ships `off` here: it needs the Ada fork of
-  SageAttention and raises without it. Set `sage_mode` to `auto` where the fork
-  is installed; `off` passes the model through untouched.
+- `Qwen-Image 2.1 Sage Attention` ships `off`: exact attention, the model
+  passed through untouched. `auto` is a modest speedup and needs the Ada fork
+  of SageAttention, without which it raises.
 - heylook does no server-side resizing. If you size references upstream and wire
   the same image to both nodes, set the expander's `max_pixels` to 0 so it sends
   them untouched -- otherwise an image already on the 32-pixel grid can sit just
@@ -188,7 +189,7 @@ def common(g: Graph, *, edit: bool):
 
 
 def build(edit: bool, expander: bool = True, save_prefix: str = "qwen_image_2.1_pe",
-          sage_mode: str = SAGE_MODE["example"]) -> dict:
+          sage_mode: str = SAGE_MODE) -> dict:
     g = Graph()
     _, cache, clip, vae = common(g, edit=edit)
     g.add("MarkdownNote", (40, 600), [NOTE], size=(460, 420), title="Note: prompt expansion")
@@ -470,7 +471,7 @@ def main() -> int:
         # nodes is re-authoring the graph, and these are snapshots.
         for name, edit, pe in (("qi21_t2i", False, False), ("qi21_t2i_pe", False, True),
                                ("qi21_edit", True, False), ("qi21_edit_pe", True, True)):
-            doc = build(edit, pe, save_prefix=API_SAVE_PREFIX, sage_mode=SAGE_MODE["api"])
+            doc = build(edit, pe, save_prefix=API_SAVE_PREFIX)
             errs = validate(doc)
             for e in errs:
                 print(f"{name}: {e}", file=sys.stderr)
