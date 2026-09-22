@@ -52,8 +52,18 @@ This replaces the 2026-09-20 sweep's t2i half, which is *withdrawn*: those
 graphs sampled on a schedule set for four times their canvas (see
 [`decisions.md`](decisions.md)).
 
-**What the 2026-09-20 sweep did establish is that edit with a reference
-barely moves across 16 to 40**, on one scene. **The templates carry one value
+**Edit converges as far as the edit leaves the model free, and 20 is short of
+it for the freer edits.** The same instrument ran the four upstream edit
+samples, three seeds each, sage on, each at the canvas its expander answer
+chose. The text-translation edit is nearly flat across 16 to 40. The head
+turn and the flag scene keep moving. The two-subject composite moves most, at
+the layout scale too, and on one seed its 16- and 20-step renders placed the
+subjects and props differently from 25 onward; another seed held one layout
+throughout. The 100-step reference is a convergence target, not a quality
+bar: on one seed it grew an extra ear. Table and gates:
+`python scripts/steps_sweep.py --report data/steps_sweep/2026-09-22_edit`.
+This supersedes the 2026-09-20 finding that edit "barely moves", which was one
+scene, a local recolor, the most constrained kind. **The templates carry one value
 per mode** rather than the official graph's single
 figure —
 `scripts/build_example_workflows.py::STEPS` holds them, and the reasoning and

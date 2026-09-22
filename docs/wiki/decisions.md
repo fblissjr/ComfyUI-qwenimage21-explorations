@@ -19,6 +19,14 @@ Older and finer-grained history is not copied here:
 
 ## 2026-09-22
 
+- **Withdrawn: "edit barely moves across 16 to 40".** It came from one scene,
+  a local recolor. The four upstream edit samples show it holds only for the
+  constrained kind: the text-translation edit is flat, while the freer edits
+  keep converging past 20, and a two-subject composite can change layout below
+  25 on some seeds. Edit's 20 is unchanged pending the owner.
+  `python scripts/steps_sweep.py --report data/steps_sweep/2026-09-22_edit`;
+  [`sampling.md`](sampling.md) section 2.
+
 - **References stay PNG; JPEG was proposed and declined.** The heylook side
   proposed JPEG to shrink request bodies over Tailscale. Its premise was a
   relayed hop, and `tailscale ping mojo` from vojo answered direct over the

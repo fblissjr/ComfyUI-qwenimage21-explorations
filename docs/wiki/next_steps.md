@@ -93,12 +93,11 @@ the line starts from the right place rather than from the top.
   current backend, so a stratified corpus is not a quick loop. Prefer the
   greedy configuration for anything being compared.
 
-- **Edit's 20 steps rests on one scene.** t2i was re-swept and moved to 40;
-  edit has not been. `scripts/steps_sweep.py --task edit` is the instrument,
-  and it needs prompts in the expander's register: a one-line brief fed
-  straight to the encoder overcooks an edit, which would be measured as a
-  step-count effect. [`sampling.md`](sampling.md) section 2 and
-  [`decisions.md`](decisions.md).
+- **Whether edit should move off 20 steps is the owner's call.** The edit
+  sweep found constrained edits flat and freer ones, a multi-reference
+  composite most of all, still converging at 20.
+  [`sampling.md`](sampling.md) section 2;
+  `scripts/build_example_workflows.py::STEPS` holds the value.
 
 ## Guards that do not exist
 
