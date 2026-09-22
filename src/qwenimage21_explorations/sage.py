@@ -41,9 +41,10 @@ applied `attn_mask` to its last two K blocks only, which a causal mask -- what
 2.1's text segments carry -- falls outside of. **That kernel was fixed on
 2026-09-20** (the sage fork's `tests/repros/repro_fp8_mask_window.py` is the
 gate), so the routing now stands on a different reason and a weaker one:
-Triton skips a K block that is entirely masked and the CUDA kernel has no
-equivalent, so at every masked shape measured Triton is both faster and more
-accurate. The other CUDA kernels -- `fp8_cuda` (fp32+fp32), `fp16_cuda`, sm80
+at every masked shape the fork's survey measured, Triton is both faster and
+more accurate. The accuracy half is PV quantized to fp16 rather than fp8. The
+speed half is not isolated: Triton also wins on a dense mask, so it is not only
+Triton skipping fully masked K blocks. The other CUDA kernels -- `fp8_cuda` (fp32+fp32), `fp16_cuda`, sm80
 -- still drop a mask whole; only the fp8++ variant ever implemented one. The
 naming trap survives the fix: fp16 *triton* serves a mask, fp16 *cuda* does
 not.
@@ -255,9 +256,10 @@ def build_masked_kernel():
     handling was wrong, so letting the mode widget reach it would have been
     letting someone select a broken kernel. That kernel is fixed, so this is
     now a preference rather than a rail -- but the preference is backed both
-    ways. Triton skips a K block that is entirely masked and the CUDA kernel
-    has no equivalent, so it is faster at every masked shape measured, and it
-    quantizes PV to fp16 rather than fp8, so it is also the more accurate arm.
+    ways. Triton was faster at every masked shape the fork measured, for a
+    reason not yet isolated (it wins on dense masks too, so block skipping is
+    not the whole of it), and it quantizes PV to fp16 rather than fp8, so it is
+    also the more accurate arm.
     Measurements: the sage fork's `tests/bench/masked_kernel_survey/`.
 
     Still not exposed on the mode widget, and that is the judgement call to

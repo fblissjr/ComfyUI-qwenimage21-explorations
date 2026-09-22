@@ -34,12 +34,15 @@
 
   Masked calls, when `sage_masked` opts them in, go to
   `sageattn_qk_int8_pv_fp16_triton` rather than to whatever `sage_mode` names.
-  Not a preference: the sm89 fp8++ general-mask path serves only a trailing
-  window of the keys and silently ignores the mask before it, which a causal
-  mask -- what 2.1's text segments carry -- falls outside of. Found while
-  smoke-testing this node; characterised in the sage fork at
+  This began as a correctness guard: the sm89 fp8++ general-mask path served
+  only a trailing window of the keys and silently ignored the mask before it,
+  which a causal mask -- what 2.1's text segments carry -- falls outside of.
+  Found while smoke-testing this node; characterised in the sage fork at
   `tests/repros/repro_fp8_mask_window.py` and recorded under its "Known kernel
-  bugs".
+  bugs", and fixed there the same day. The routing now stands as a
+  preference: Triton quantizes PV to fp16 rather than fp8, so it is the more
+  accurate arm, and it was faster at every masked shape in the fork's survey,
+  for a reason the fork has not isolated.
 
   **No speed claim.** The kernel has been exercised at 2.1's shapes and is
   correct there; nothing has been timed, and there is no A/B. The one that

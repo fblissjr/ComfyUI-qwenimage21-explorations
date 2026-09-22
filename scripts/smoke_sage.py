@@ -105,9 +105,10 @@ def main():
     # Row 0 of a causal mask attends to exactly one key, so its output must BE
     # that key's value -- no averaging, no cancellation, nothing for an
     # approximate kernel to hide behind. It is the one check here that a wrong
-    # mask cannot pass, and the fp8 path fails it (the sage fork's
-    # tests/repros/repro_fp8_mask_window.py characterizes why), which is why
-    # masked calls are routed elsewhere.
+    # mask cannot pass. The fp8++ path failed it until the sage fork fixed
+    # its general-mask window on 2026-09-20 (tests/repros/repro_fp8_mask_window.py
+    # there is the gate); masked calls still go to Triton, for the reasons in
+    # sage.py's build_masked_kernel.
     drift = (masked[0, 0].float() - masked_v[0, 0].float()).abs().max().item()
     ok = drift < 0.05
     print(f"    row 0 must equal v[0] exactly: max_abs={drift:.5f}"
