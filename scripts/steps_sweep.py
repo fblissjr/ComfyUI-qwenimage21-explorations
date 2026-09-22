@@ -20,6 +20,13 @@ render at two scales. Full resolution sees detail. A 1/16 downsample sees
 layout and subject scale, which is where the withdrawn 2026-09-20 sweep put
 most of its t2i gap.
 
+`--sage-modes` turns the same grid into the A/B `sage.py` names as missing.
+Each mode is one of `sage.MODES`, `off` (the node left out, so ComfyUI's own
+attention), or a mode with `+masked` appended to set `sage_masked`. When `off`
+is in the list, every other mode is also compared with `off` at the same step
+count. That distance is sage's own error, to be read against the gap between
+step counts. `--reference 0` skips the high-step render.
+
 Gates, recorded with the results rather than assumed:
 - determinism: the first arm is rendered twice, with ComfyUI's execution cache
   freed in between, and the two PNGs must be byte-identical.
@@ -27,12 +34,13 @@ Gates, recorded with the results rather than assumed:
   `declined or raised` line, during the sweep.
 
 Writes `<out>/results.jsonl` (one conditions row, then one row per render),
-the PNGs, and one contact sheet per (prompt, seed).
+the PNGs, and one contact sheet per (prompt, seed), one row per mode.
 
 Usage:
   uv run --no-project --with numpy --with pillow python scripts/steps_sweep.py \\
       --out data/steps_sweep/<date> [--server http://127.0.0.1:8188] \\
-      [--steps 20,25,30,40,50] [--reference 100] [--seeds 1,2,3] [--limit N]
+      [--steps 20,25,30,40,50] [--reference 100] [--seeds 1,2,3] [--limit N] \\
+      [--sage-modes auto]    # e.g. off,auto,fp8,fp16,auto+masked
 """
 
 from __future__ import annotations
@@ -72,18 +80,26 @@ def load_prompt(path: Path) -> dict:
     return {"name": path.stem, "wh_ratio": meta.get("wh_ratio", ""), "prompt": body.strip()}
 
 
-def graph(prompt: str, width: int, height: int, steps: int, seed: int, prefix: str) -> dict:
+def graph(prompt: str, width: int, height: int, steps: int, seed: int, prefix: str,
+          mode: str = "auto") -> dict:
     api = bew.to_api(bew.build(False, False, save_prefix=prefix))
     by_type = {v["class_type"]: k for k, v in api.items()}
     api[by_type["TextEncodeQwenImage21"]]["inputs"]["prompt"] = prompt
     api[by_type["EmptyLatentImage"]]["inputs"].update(width=width, height=height)
     api[by_type["QwenImage21Sigmas"]]["inputs"]["steps"] = steps
     api[by_type["RandomNoise"]]["inputs"]["noise_seed"] = seed
+    if mode == "off":
+        return api
+    name, masked = mode.removesuffix("+masked"), mode.endswith("+masked")
     cache = by_type["QwenImage21Cache"]
     api[SAGE_ID] = {"class_type": "QwenImage21SageAttention",
-                    "inputs": {"model": [cache, 0], "sage_mode": "auto"}}
+                    "inputs": {"model": [cache, 0], "sage_mode": name, "sage_masked": masked}}
     api[by_type["CFGGuider"]]["inputs"]["model"] = [SAGE_ID, 0]
     return api
+
+
+def slug(mode: str) -> str:
+    return "".join(c if c.isalnum() else "-" for c in mode.replace("++", "pp")).strip("-")
 
 
 def call(server: str, path: str, body: dict | None = None) -> dict:
@@ -129,12 +145,14 @@ def coarse(png: bytes) -> np.ndarray:
     return np.asarray(im.resize((im.width // 16, im.height // 16), Image.Resampling.BOX))
 
 
-def sheet(pngs: list[tuple[str, bytes]], path: Path, tile: int = 384):
-    ims = [Image.open(io.BytesIO(p)).convert("RGB") for _, p in pngs]
-    h = round(tile * ims[0].height / ims[0].width)
-    out = Image.new("RGB", (tile * len(ims), h), "white")
-    for i, im in enumerate(ims):
-        out.paste(im.resize((tile, h), Image.Resampling.LANCZOS), (i * tile, 0))
+def sheet(rows: list[list[bytes]], path: Path, tile: int = 384):
+    first = Image.open(io.BytesIO(rows[0][0]))
+    h = round(tile * first.height / first.width)
+    out = Image.new("RGB", (tile * max(map(len, rows)), h * len(rows)), "white")
+    for r, row in enumerate(rows):
+        for c, png in enumerate(row):
+            im = Image.open(io.BytesIO(png)).convert("RGB")
+            out.paste(im.resize((tile, h), Image.Resampling.LANCZOS), (c * tile, r * h))
     out.save(path)
 
 
@@ -146,6 +164,7 @@ def main() -> int:
     ap.add_argument("--reference", type=int, default=100)
     ap.add_argument("--seeds", default="1,2,3")
     ap.add_argument("--limit", type=int, default=0, help="stop after N renders; for timing one")
+    ap.add_argument("--sage-modes", default="auto")
     args = ap.parse_args()
 
     steps = [int(s) for s in args.steps.split(",")]
@@ -160,7 +179,8 @@ def main() -> int:
     rows.write(json.dumps({"kind": "conditions", "date": time.strftime("%Y-%m-%d %H:%M:%S"),
                            "repo_commit": commit, "system": stats["system"],
                            "devices": [d["name"] for d in stats["devices"]],
-                           "sage_mode": "auto", "steps": steps, "reference": args.reference,
+                           "sage_modes": args.sage_modes.split(","), "steps": steps,
+                           "reference": args.reference,
                            "seeds": seeds, "sampler": "euler", "cfg": 1.0,
                            "terminal_mode": "release"}) + "\n")
     _, since = new_log(args.server, "")
@@ -175,40 +195,49 @@ def main() -> int:
 
 
 def sweep(args, prompts, steps, seeds, rows, seen, since):
+    modes = args.sage_modes.split(",")
+    counts = ([args.reference] if args.reference else []) + steps
     done = 0
     for p in prompts:
         w, h = canvas.choose(p["wh_ratio"], "", 1024, 1024, [], 1024)
         for seed in seeds:
             arms = {}
-            for n in [args.reference] + steps:
-                api = graph(p["prompt"], w, h, n, seed, f"qi21_steps_sweep/{p['name']}_s{seed}_{n}")
-                png, seconds = render(args.server, api)
-                if done == 0:
-                    call(args.server, "/free", {"free_memory": True})
-                    again, _ = render(args.server, api)
-                    rows.write(json.dumps({"kind": "determinism", "prompt": p["name"], "seed": seed,
-                                           "steps": n, "identical": again == png}) + "\n")
-                lines, since = new_log(args.server, since)
-                seen += lines
-                (args.out / f"{p['name']}_s{seed}_{n:03d}.png").write_bytes(png)
-                arms[n] = png
-                rows.write(json.dumps({"kind": "render", "prompt": p["name"], "seed": seed,
-                                       "width": w, "height": h, "steps": n,
-                                       "seconds": seconds}) + "\n")
-                rows.flush()
-                done += 1
-                print(f"{p['name']} seed {seed} steps {n}: {seconds:.1f}s", flush=True)
-                if args.limit and done >= args.limit:
-                    return
-            ref = {k: np.asarray(Image.open(io.BytesIO(v)).convert("RGB")) for k, v in arms.items()}
-            for n in steps:
-                rows.write(json.dumps({
-                    "kind": "distance", "prompt": p["name"], "seed": seed, "steps": n,
-                    "mad_ref": mad(ref[n], ref[args.reference]),
-                    "mad_ref_coarse": mad(coarse(arms[n]), coarse(arms[args.reference])),
-                    "mad_40": mad(ref[n], ref[40]) if 40 in ref else None,
-                }) + "\n")
-            sheet([(str(n), arms[n]) for n in steps + [args.reference]],
+            for mode in modes:
+                for n in counts:
+                    tag = f"{p['name']}_s{seed}_{slug(mode)}_{n:03d}"
+                    api = graph(p["prompt"], w, h, n, seed, f"qi21_steps_sweep/{tag}", mode)
+                    png, seconds = render(args.server, api)
+                    if done == 0:
+                        call(args.server, "/free", {"free_memory": True})
+                        again, _ = render(args.server, api)
+                        rows.write(json.dumps({"kind": "determinism", "prompt": p["name"], "seed": seed,
+                                               "mode": mode, "steps": n, "identical": again == png}) + "\n")
+                    lines, since = new_log(args.server, since)
+                    seen += lines
+                    (args.out / f"{tag}.png").write_bytes(png)
+                    arms[mode, n] = png
+                    rows.write(json.dumps({"kind": "render", "prompt": p["name"], "seed": seed,
+                                           "mode": mode, "width": w, "height": h, "steps": n,
+                                           "seconds": seconds}) + "\n")
+                    rows.flush()
+                    done += 1
+                    print(f"{tag}: {seconds:.1f}s", flush=True)
+                    if args.limit and done >= args.limit:
+                        return
+            px = {k: np.asarray(Image.open(io.BytesIO(v)).convert("RGB")) for k, v in arms.items()}
+            for mode in modes:
+                for n in steps:
+                    row = {"kind": "distance", "prompt": p["name"], "seed": seed, "mode": mode, "steps": n}
+                    if args.reference:
+                        ref = (mode, args.reference)
+                        row.update(mad_ref=mad(px[mode, n], px[ref]),
+                                   mad_ref_coarse=mad(coarse(arms[mode, n]), coarse(arms[ref])),
+                                   mad_40=mad(px[mode, n], px[mode, 40]) if 40 in steps else None)
+                    if "off" in modes and mode != "off":
+                        row.update(mad_off=mad(px[mode, n], px["off", n]),
+                                   mad_off_coarse=mad(coarse(arms[mode, n]), coarse(arms["off", n])))
+                    rows.write(json.dumps(row) + "\n")
+            sheet([[arms[mode, n] for n in steps + counts[:1 if args.reference else 0]] for mode in modes],
                   args.out / f"sheet_{p['name']}_s{seed}.png")
 
 

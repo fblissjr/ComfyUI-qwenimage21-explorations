@@ -20,6 +20,9 @@
   results file records the run conditions, a byte-identical repeat render, and
   the sage `fired` lines, so a silent fallback or nondeterminism shows up in
   the record. It measures convergence, not quality, and leaves `STEPS` alone.
+  `--sage-modes` runs the same grid per sage mode, `off` included, and
+  compares every mode with `off` at the same step count: the A/B `sage.py`
+  names as missing.
 
 ## 0.2.0
 
