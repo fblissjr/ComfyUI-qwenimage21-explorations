@@ -23,7 +23,8 @@ Older and finer-grained history is not copied here:
   a local recolor. The four upstream edit samples show it holds only for the
   constrained kind: the text-translation edit is flat, while the freer edits
   keep converging past 20, and a two-subject composite can change layout below
-  25 on some seeds. Edit's 20 is unchanged pending the owner.
+  25 on some seeds. **Edit ships 30 steps** (the owner), which clears the
+  layout change with margin and costs the constrained edits only time.
   `python scripts/steps_sweep.py --report data/steps_sweep/2026-09-22_edit`;
   [`sampling.md`](sampling.md) section 2.
 

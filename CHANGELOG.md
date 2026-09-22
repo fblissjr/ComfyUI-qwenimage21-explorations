@@ -47,8 +47,9 @@
   `off` in `example_workflows/`, because the node raises without the Ada fork
   of SageAttention. It is added last, so every other node keeps its id.
   Regenerate any copy, and resync the front end's templates.
-- t2i graphs sample 40 steps instead of the official 25; edit stays at 20.
-  `docs/wiki/decisions.md` has the evidence and the command that reprints it.
+- t2i graphs sample 40 steps instead of the official 25, and edit graphs 30
+  instead of 20. `docs/wiki/decisions.md` has the evidence and the commands
+  that reprint it.
 
 ## 0.2.0
 

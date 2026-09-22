@@ -34,8 +34,8 @@ the work per step.
 **On steps, ComfyUI's official graph is the outlier and it is a deliberate
 one.** Every other implementation defaults higher: diffusers, LightX2V,
 DiffSynth-Studio and sglang to 40, vllm-omni's branch to 50. The Comfy-Org
-graph ships 25. **This repo's t2i graphs now ship 40** (the owner,
-2026-09-22), after a sweep found t2i still converging at 25. *(Corrected 2026-09-22: this table gave DiffSynth-Studio's and
+graph ships 25. **This repo's graphs now ship 40 for t2i and 30 for edit**
+(the owner, 2026-09-22), after the sweeps below. *(Corrected 2026-09-22: this table gave DiffSynth-Studio's and
 sglang's steps as the caller's. Both already defaulted to 40 at the revisions
 [`references.md`](references.md) records, so the outlier was starker than the
 page said. See [`decisions.md`](decisions.md).)*

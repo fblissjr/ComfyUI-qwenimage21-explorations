@@ -34,13 +34,14 @@ HEYLOOK = "http://localhost:8080"
 #: so this is the prefix for the deliberate case.
 API_SAVE_PREFIX = "qwenimage_app_output/qwen_image_2.1"
 
-#: Steps, by mode. t2i at 40, the default of every other implementation, set by
-#: the owner on 2026-09-22 after `scripts/steps_sweep.py` found t2i still
-#: converging at the official 25 on both canvases it ran
-#: (`--report data/steps_sweep/2026-09-22`). Edit's 20 rests on a 2026-09-20
-#: sweep of one scene, pending the edit sweep. docs/wiki/sampling.md,
-#: docs/wiki/decisions.md.
-STEPS = {"t2i": 40, "edit": 20}
+#: Steps, by mode, both set by the owner on 2026-09-22 from
+#: `scripts/steps_sweep.py`. t2i at 40, every other implementation's default:
+#: still converging at the official 25 on both canvases
+#: (`--report data/steps_sweep/2026-09-22`). Edit at 30: constrained edits are
+#: flat, but freer ones keep converging past 20 and a multi-reference composite
+#: can change layout below 25 (`--report data/steps_sweep/2026-09-22_edit`).
+#: docs/wiki/sampling.md, docs/wiki/decisions.md.
+STEPS = {"t2i": 40, "edit": 30}
 #: `QwenImage21SageAttention`'s mode, by output. The node is in every graph
 #: because it is how the owner renders, but it raises without the Ada fork of
 #: SageAttention, so the shared example graphs ship it off -- one widget to turn

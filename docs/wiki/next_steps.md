@@ -93,12 +93,6 @@ the line starts from the right place rather than from the top.
   current backend, so a stratified corpus is not a quick loop. Prefer the
   greedy configuration for anything being compared.
 
-- **Whether edit should move off 20 steps is the owner's call.** The edit
-  sweep found constrained edits flat and freer ones, a multi-reference
-  composite most of all, still converging at 20.
-  [`sampling.md`](sampling.md) section 2;
-  `scripts/build_example_workflows.py::STEPS` holds the value.
-
 ## Guards that do not exist
 
 Not a to-do list — the repo's habit is that a new check needs a real instance it
