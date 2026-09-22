@@ -36,8 +36,9 @@ from __future__ import annotations
 
 import base64
 import io
+import logging
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import requests
@@ -52,6 +53,23 @@ class Response:
     stop_reason: str
     input_tokens: int
     output_tokens: int
+    #: heylook's `performance` object, verbatim (prompt_tps, generation_tps,
+    #: request_duration_ms, ...). Sent unconditionally on the non-streaming
+    #: wire; empty on a server that predates it. `prefill_ms`/`decode_ms`
+    #: derive the split that says where a slow expansion spent its time --
+    #: measured 2026-09-22 on the edit encoder: prefill is ~1.3 s per 1 MP
+    #: image, decode is everything else, and the LAN hop is noise.
+    performance: dict = field(default_factory=dict)
+
+    @property
+    def prefill_ms(self) -> int | None:
+        tps = self.performance.get("prompt_tps")
+        return round(self.input_tokens / tps * 1000) if tps and self.input_tokens else None
+
+    @property
+    def decode_ms(self) -> int | None:
+        tps = self.performance.get("generation_tps")
+        return round(self.output_tokens / tps * 1000) if tps and self.output_tokens else None
 
     @property
     def truncated(self) -> bool:
@@ -147,6 +165,7 @@ def normalise_response(payload: dict) -> Response:
         stop_reason=payload.get("stop_reason", ""),
         input_tokens=int(usage.get("input_tokens") or 0),
         output_tokens=int(usage.get("output_tokens") or 0),
+        performance=dict(payload.get("performance") or {}),
     )
 
 
@@ -215,6 +234,13 @@ def generate(
             )
         out = normalise_response(r.json())
         delivered = True
+        # One line per expansion so a slow one can be attributed without a
+        # re-run: prefill scales with images x pixels, decode with the trace.
+        logging.info(
+            "[heylook] %s tokens in=%d out=%d prefill_ms=%s decode_ms=%s total_ms=%s stop=%s",
+            model, out.input_tokens, out.output_tokens, out.prefill_ms, out.decode_ms,
+            out.performance.get("request_duration_ms"), out.stop_reason,
+        )
         return out
     finally:
         if not delivered:

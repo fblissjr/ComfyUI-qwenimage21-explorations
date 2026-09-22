@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.1
+
+### Added
+
+- `backends/heylook.py`: `Response.performance` carries heylook's
+  `performance` object verbatim, with `prefill_ms` / `decode_ms` derived from
+  it, and `generate` logs one `[heylook]` line per expansion (tokens in/out,
+  prefill, decode, total, stop reason). Measured on the edit encoder before
+  wiring it: prefill is about 1.3 s per 1 MP reference and decode is the rest
+  of the wall time, so a slow expansion is attributable from the log alone.
+  A server without the object reports `None`, not zero.
+
 ## 0.2.0
 
 ### Added

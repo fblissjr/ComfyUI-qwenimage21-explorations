@@ -260,3 +260,17 @@ def test_a_blank_reasoning_effort_sends_nothing(nodes, monkeypatch):
 def test_a_chosen_model_is_sent_in_place_of_the_task_default(nodes, monkeypatch):
     assert _expand_with(nodes, monkeypatch)["model"] == nodes.HEYLOOK_MODELS["t2i"]
     assert _expand_with(nodes, monkeypatch, model="some-other-model")["model"] == "some-other-model"
+
+
+def test_performance_rides_the_response_and_derives_the_split():
+    r = normalise_response({**payload([{"type": "text", "text": "{}"}]),
+                            "usage": {"input_tokens": 2000, "output_tokens": 400},
+                            "performance": {"prompt_tps": 800.0, "generation_tps": 40.0,
+                                            "request_duration_ms": 12500}})
+    assert r.performance["request_duration_ms"] == 12500
+    assert r.prefill_ms == 2500 and r.decode_ms == 10000
+
+
+def test_a_server_without_performance_reports_nothing_rather_than_zero():
+    r = normalise_response(payload([{"type": "text", "text": "{}"}]))
+    assert r.performance == {} and r.prefill_ms is None and r.decode_ms is None
