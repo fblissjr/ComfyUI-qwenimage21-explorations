@@ -22,7 +22,10 @@
   the record. It measures convergence, not quality, and leaves `STEPS` alone.
   `--sage-modes` runs the same grid per sage mode, `off` included, and
   compares every mode with `off` at the same step count: the A/B `sage.py`
-  names as missing.
+  names as missing. `--task edit` runs the plain edit graph over prompt files
+  that name their reference, and `--report DIR` prints a run's gates and a
+  summary table from its results file, so the numbers are reprinted rather
+  than copied.
 
 ## 0.2.0
 
