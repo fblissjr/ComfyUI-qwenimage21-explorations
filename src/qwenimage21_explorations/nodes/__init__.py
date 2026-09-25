@@ -16,6 +16,7 @@ import uuid
 import comfy.latent_formats
 import comfy.model_management
 import comfy.utils
+import folder_paths
 import node_helpers
 import nodes
 import torch
@@ -383,7 +384,7 @@ class QwenImage21Extension(ComfyExtension):
         # Imported here: the server exists under a running ComfyUI, not where
         # the tests import this module.
         from server import PromptServer
-        routes.register(PromptServer.instance.routes)
+        routes.register(PromptServer.instance.routes, folder_paths.get_input_directory)
 
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:

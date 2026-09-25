@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- `GET /qwenimage21/thumb?filename=&size=`: a WebP thumbnail of one file in
+  ComfyUI's input folder, longest side `size` (default 256, clamped to
+  `routes.THUMB_MIN`..`THUMB_MAX`). Core's `/view` re-encodes the full image on
+  every `preview` request and never resizes; over this install's input folder
+  a 256 px thumbnail is a small fraction of that preview's bytes and time
+  (`routes._thumb_bytes` over the folder reprints both). Paths are contained
+  the way `/view` contains them, a missing file is a 404 and a non-image a
+  415. Nothing is cached server-side: the ETag (mtime, size, `size`) lets the
+  browser's own cache revalidate with a 304 and no re-encode.
+  `routes.register` now takes the input-folder getter, passed from `on_load`.
+
 ## 0.3.0
 
 ### Added
