@@ -23,7 +23,7 @@ from comfy_api.latest import ComfyExtension, io
 from typing_extensions import override
 
 from .. import answer as answer_mod
-from .. import canvas as canvas_mod, chat, sage, sigmas as sigmas_mod, templates
+from .. import canvas as canvas_mod, chat, routes, sage, sigmas as sigmas_mod, templates
 from ..backends import heylook
 from ..profiles import GREEDY, PROFILES, with_preset
 
@@ -378,6 +378,13 @@ class Canvas(io.ComfyNode):
 
 
 class QwenImage21Extension(ComfyExtension):
+    @override
+    async def on_load(self) -> None:
+        # Imported here: the server exists under a running ComfyUI, not where
+        # the tests import this module.
+        from server import PromptServer
+        routes.register(PromptServer.instance.routes)
+
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         # Append only: saved graphs match widget values by index.

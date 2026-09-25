@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0
+
+### Added
+
+- `routes.py`: `GET /qwenimage21/heylook/presets` and `/models` on ComfyUI's
+  server, each taking `base_url`, so a front end can fill its preset and model
+  pickers now that heylook sends no CORS headers (v2.0.123). They fetch
+  server-side with `backends/heylook.py` (`list_presets`, and the new
+  `list_models`) and answer in heylook's own shapes, trimmed by
+  `browser_presets` / `browser_models` to what a picker reads. No address is a
+  400; an unreachable or failing server is a 502 carrying the reason.
+  Registered from the extension's `on_load`. `tests/test_routes.py`.
+
 ## 0.2.1
 
 ### Added

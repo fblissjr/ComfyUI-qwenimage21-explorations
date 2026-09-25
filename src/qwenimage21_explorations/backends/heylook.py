@@ -95,6 +95,23 @@ def list_presets(base_url: str, timeout: int = 30) -> list[dict]:
     return r.json().get("presets", [])
 
 
+def list_models(base_url: str, timeout: int = 30) -> list[dict]:
+    """The models the server will serve, each with its `capabilities`."""
+    r = requests.get(f"{base_url.rstrip('/')}/v1/models", timeout=timeout)
+    r.raise_for_status()
+    return r.json().get("data", [])
+
+
+def browser_presets(presets: list[dict]) -> list[dict]:
+    """What a front end's preset picker reads: not the system prompts."""
+    return [{"id": p.get("id"), "name": p.get("name"), "params": p.get("params") or {}} for p in presets]
+
+
+def browser_models(models: list[dict]) -> list[dict]:
+    """What a front end's model picker reads."""
+    return [{"id": m.get("id"), "capabilities": m.get("capabilities") or []} for m in models]
+
+
 def find_preset(presets: list[dict], wanted: str) -> dict:
     """By id first, then by name, case-insensitively. Raises naming what exists."""
     want = wanted.strip()

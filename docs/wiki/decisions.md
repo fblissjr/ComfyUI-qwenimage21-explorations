@@ -1,6 +1,6 @@
 # Decisions, withdrawals and corrections
 
-last updated: 2026-09-22
+last updated: 2026-09-25
 
 Written by hand. One entry per decision the owner made, or per claim that was
 corrected or withdrawn: what changed, what it used to say, where it lives now.
@@ -16,6 +16,19 @@ Older and finer-grained history is not copied here:
   the worked example. Read a section together with anything that cites it.
 
 ---
+
+## 2026-09-25
+
+- **A browser reads heylook's presets and models through ComfyUI.** heylook
+  dropped its CORS grant in v2.0.123, on purpose: its API is unauthenticated,
+  and a wildcard let any page the owner opened drive it. The server kept
+  answering and the shapes did not change, but a front end on another origin
+  could no longer read them, so its pickers came back empty. `routes.py` serves
+  `/qwenimage21/heylook/presets` and `/models`, fetched server-side with the
+  functions the node uses, returning only ids, names, params and capabilities --
+  not the presets' system prompts. It adds no reach: the expander node already
+  fetches `/v1/presets` from any `base_url` a queued graph names. Restoring CORS
+  on heylook was the other option and is the one this avoids.
 
 ## 2026-09-22
 
