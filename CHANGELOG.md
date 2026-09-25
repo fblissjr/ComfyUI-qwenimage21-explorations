@@ -7,25 +7,32 @@
 - `GET /qwenimage21/thumb?filename=&size=`: a WebP thumbnail of one file in
   ComfyUI's input folder, longest side `size` (default 256, clamped to
   `routes.THUMB_MIN`..`THUMB_MAX`). Core's `/view` re-encodes the full image on
-  every `preview` request and never resizes; over this install's input folder
-  a 256 px thumbnail is a small fraction of that preview's bytes and time
-  (`routes._thumb_bytes` over the folder reprints both). Paths are contained
+  every `preview` request and never resizes, so listing many inputs as
+  previews costs a full-size encode each; a 256 px thumbnail is a small
+  fraction of that preview's bytes and time (`routes._thumb_bytes` over an
+  input folder reprints both). Paths are contained
   the way `/view` contains them, a missing file is a 404 and a non-image a
   415. Nothing is cached server-side: the ETag (mtime, size, `size`) lets the
   browser's own cache revalidate with a 304 and no re-encode.
   `routes.register` now takes the input-folder getter, passed from `on_load`.
+
+### Changed
+
+- `API_SAVE_PREFIX` is `qwenimage_api_output/`, a neutral name for where the
+  API-format templates save when asked to keep an image.
 
 ## 0.3.0
 
 ### Added
 
 - `routes.py`: `GET /qwenimage21/heylook/presets` and `/models` on ComfyUI's
-  server, each taking `base_url`, so a front end can fill its preset and model
-  pickers now that heylook sends no CORS headers (v2.0.123). They fetch
-  server-side with `backends/heylook.py` (`list_presets`, and the new
-  `list_models`) and answer in heylook's own shapes, trimmed by
-  `browser_presets` / `browser_models` to what a picker reads. No address is a
-  400; an unreachable or failing server is a 502 carrying the reason.
+  server, each taking `base_url`, so a web page can list a heylook server's
+  presets and models: heylook sends no CORS headers (v2.0.123), so no page on
+  another origin can read them directly. They fetch server-side with
+  `backends/heylook.py` (`list_presets`, and the new `list_models`) and answer
+  in heylook's own shapes, trimmed by `summarise_presets` / `summarise_models`
+  to ids, names, params and capabilities -- not the system prompts. No address
+  is a 400; an unreachable or failing server is a 502 carrying the reason.
   Registered from the extension's `on_load`. `tests/test_routes.py`.
 
 ## 0.2.1
@@ -71,9 +78,9 @@
   and serialization together -- a share, not a pure transfer time, and where a
   slow hop would show. `None` when the server sends no duration.
 - Every generated graph carries `QwenImage21SageAttention` between the cache
-  and the guider, set `off`, so sage is an opt-in the front end can offer and
-  the graphs' default matches the app's. It is added last, so every other node
-  keeps its id. Regenerate any copy, and resync the front end's templates.
+  and the guider, set `off`, so sage is an opt-in and every graph ships the
+  same default. It is added last, so every other node keeps its id.
+  Regenerate any copy, the API-format templates included.
 - t2i graphs sample 40 steps instead of the official 25, and edit graphs 30
   instead of 20. `docs/wiki/decisions.md` has the evidence and the commands
   that reprint it.

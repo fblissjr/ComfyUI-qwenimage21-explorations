@@ -54,8 +54,8 @@ def test_a_blank_preset_does_not_displace_the_checkpoint(ckpt):
 def test_nothing_at_all_sends_no_system_prompt():
     """Chosen by the owner: run with the server's own template rather than refuse.
 
-    The app never sends a checkpoint, so a preset without a system prompt used
-    to fail the whole run here.
+    An API client may send no checkpoint, and a preset without a system prompt
+    used to fail the whole run there.
     """
     r = templates.resolve_with_preset()
     assert (r.text, r.source) == ("", "none")

@@ -1,8 +1,9 @@
-"""The heylook lookups a browser makes through ComfyUI.
+"""The routes on ComfyUI's server: heylook lookups and input thumbnails.
 
-heylook sends no CORS headers (v2.0.123), so a front end on another origin
-cannot read its presets or models. These routes fetch them server-side, as the
-expander node already does, and hand back only what a picker reads.
+heylook sends no CORS headers (v2.0.123), so no web page on another origin can
+read its presets or models. These routes fetch them server-side, as the
+expander node already does, and hand back only ids, names, params and
+capabilities.
 """
 
 import asyncio
@@ -26,16 +27,16 @@ def call(handler, **query):
     return r.status, json.loads(r.text)
 
 
-def test_presets_keep_only_what_a_picker_reads():
+def test_presets_keep_ids_names_and_params_only():
     raw = [{"id": "a1", "name": "qwen_image-edit", "system_prompt": "long", "created_at": "t",
             "params": {"enable_thinking": True, "max_tokens": 16000}}]
-    assert heylook.browser_presets(raw) == [
+    assert heylook.summarise_presets(raw) == [
         {"id": "a1", "name": "qwen_image-edit", "params": {"enable_thinking": True, "max_tokens": 16000}}]
 
 
 def test_models_keep_only_id_and_capabilities():
     raw = [{"id": "m", "capabilities": ["chat", "vision"], "sampler_defaults": {}, "engine": {}}]
-    assert heylook.browser_models(raw) == [{"id": "m", "capabilities": ["chat", "vision"]}]
+    assert heylook.summarise_models(raw) == [{"id": "m", "capabilities": ["chat", "vision"]}]
 
 
 def test_the_presets_route_answers_in_heylook_s_shape(monkeypatch):
@@ -69,7 +70,7 @@ def test_an_unreachable_server_is_a_502_naming_why(monkeypatch):
 
 # ---------------------------------------------------------------------------
 # Thumbnails: /view re-encodes the full image on every preview request, so a
-# picker of a few hundred inputs pulled megabytes and seconds of server time.
+# listing of a few hundred inputs cost megabytes and seconds of server time.
 
 
 def thumb(tmp_path, **query):

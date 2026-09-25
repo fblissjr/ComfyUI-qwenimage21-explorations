@@ -102,13 +102,13 @@ def list_models(base_url: str, timeout: int = 30) -> list[dict]:
     return r.json().get("data", [])
 
 
-def browser_presets(presets: list[dict]) -> list[dict]:
-    """What a front end's preset picker reads: not the system prompts."""
+def summarise_presets(presets: list[dict]) -> list[dict]:
+    """Each preset's id, name and params: not its system prompt."""
     return [{"id": p.get("id"), "name": p.get("name"), "params": p.get("params") or {}} for p in presets]
 
 
-def browser_models(models: list[dict]) -> list[dict]:
-    """What a front end's model picker reads."""
+def summarise_models(models: list[dict]) -> list[dict]:
+    """Each model's id and capabilities."""
     return [{"id": m.get("id"), "capabilities": m.get("capabilities") or []} for m in models]
 
 

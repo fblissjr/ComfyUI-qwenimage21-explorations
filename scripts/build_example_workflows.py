@@ -28,11 +28,10 @@ UNET = "qwen_image_2.1_bf16.safetensors"
 CLIP = "qwen3vl_8b_bf16.safetensors"
 VAE = "qwen_image_2.1_vae_bf16.safetensors"
 HEYLOOK = "http://localhost:8080"
-#: Where a front end's saved results land. A subfolder keeps app output apart
-#: from whatever else writes to ComfyUI's output directory. Front ends default
-#: to a temp preview and only reach SaveImage when the user asks to keep one,
-#: so this is the prefix for the deliberate case.
-API_SAVE_PREFIX = "qwenimage_app_output/qwen_image_2.1"
+#: Where the API-format templates save. A subfolder keeps their output apart
+#: from whatever else writes to ComfyUI's output directory; a client that only
+#: previews swaps SaveImage out, so this is the prefix for keeping an image.
+API_SAVE_PREFIX = "qwenimage_api_output/qwen_image_2.1"
 
 #: Steps, by mode, both set by the owner on 2026-09-22 from
 #: `scripts/steps_sweep.py`. t2i at 40, every other implementation's default:
@@ -44,9 +43,9 @@ API_SAVE_PREFIX = "qwenimage_app_output/qwen_image_2.1"
 STEPS = {"t2i": 40, "edit": 30}
 #: `QwenImage21SageAttention`'s mode in every graph, off (the owner, 2026-09-22):
 #: sage's gain measured modest and its deviation from exact attention has not
-#: been judged by eye, so it is opt-in. The node is in every graph so the front
-#: end can offer it; it raises without the Ada fork, which `off` never reaches.
-#: One value for every output, because workflow defaults and app defaults match.
+#: been judged by eye, so it is opt-in. The node is in every graph so it can be
+#: switched on; it raises without the Ada fork, which `off` never reaches.
+#: One value for every output, so every copy of a graph starts from the same default.
 SAGE_MODE = "off"
 #: Mirrors the reference runner's per-image cap, which is also the node's default.
 #: Set it to 0 in a graph that sizes its references upstream -- docs/wiki/sizing.md.
@@ -463,11 +462,11 @@ def main() -> int:
     ap.add_argument("--server", metavar="URL",
                     help="also validate against a running ComfyUI, e.g. http://127.0.0.1:8188")
     ap.add_argument("--api-out", metavar="DIR", type=Path,
-                    help="also write API-format templates there, for a front end to patch")
+                    help="also write API-format templates there, for an API client to patch")
     args = ap.parse_args()
 
     if args.api_out:
-        # Four, rather than one the app edits: a front end that adds or removes
+        # Four, rather than one a client edits: a client that adds or removes
         # nodes is re-authoring the graph, and these are snapshots.
         for name, edit, pe in (("qi21_t2i", False, False), ("qi21_t2i_pe", False, True),
                                ("qi21_edit", True, False), ("qi21_edit_pe", True, True)):

@@ -19,14 +19,13 @@ Older and finer-grained history is not copied here:
 
 ## 2026-09-25
 
-- **A browser reads heylook's presets and models through ComfyUI.** heylook
+- **A web page reads heylook's presets and models through ComfyUI.** heylook
   dropped its CORS grant in v2.0.123, on purpose: its API is unauthenticated,
   and a wildcard let any page the owner opened drive it. The server kept
-  answering and the shapes did not change, but a front end on another origin
-  could no longer read them, so its pickers came back empty. `routes.py` serves
-  `/qwenimage21/heylook/presets` and `/models`, fetched server-side with the
-  functions the node uses, returning only ids, names, params and capabilities --
-  not the presets' system prompts. It adds no reach: the expander node already
+  answering and the shapes did not change, but no page on another origin can
+  read them any more. `routes.py` serves `/qwenimage21/heylook/presets` and
+  `/models`, fetched server-side with the functions the node uses, returning
+  only ids, names, params and capabilities -- not the presets' system prompts. It adds no reach: the expander node already
   fetches `/v1/presets` from any `base_url` a queued graph names. Restoring CORS
   on heylook was the other option and is the one this avoids.
 
@@ -65,8 +64,8 @@ Older and finer-grained history is not copied here:
   owner). It first shipped `auto` in the API templates, on the reading that the
   owner renders with sage; the owner set it off, because the gain is modest and
   the deviation from exact attention was measured but never judged by eye. The
-  node stays in every graph so the front end can offer it, and one value
-  serves every output, because workflow defaults and app defaults match. Every sage mode stayed
+  node stays in every graph so it can be switched on, and one value serves
+  every output, so every copy of a graph starts from the same default. Every sage mode stayed
   far closer to no sage than 25 steps is to 40, and every mode rendered
   somewhat faster than no sage; the modes differ little from each other, so
   `auto` stands and `sage_masked` stays off.
@@ -204,7 +203,7 @@ Older and finer-grained history is not copied here:
 
 - **A preset without a system prompt overrides nothing, and a preset cannot
   lower `max_tokens`** (the owner). Two consequences of the preset order above
-  that surfaced from the app, which never sends a checkpoint:
+  that surfaced from an API client, which never sends a checkpoint:
 
   - A preset with an empty system prompt fell through to the checkpoint and,
     with none, failed the run on "no system prompt". Now the chain ends in

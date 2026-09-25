@@ -111,7 +111,7 @@ def resolve_with_preset(
     one, the result is empty with source "none": the request then carries no
     system prompt and the server applies the model's own template. Chosen by
     the owner over refusing the run, which is what a preset without one did
-    wherever no checkpoint is given -- always, from the app.
+    wherever no checkpoint is given -- always, from an API client that sends none.
     """
     if explicit_text.strip() or template_path:
         return resolve(explicit_text=explicit_text, template_path=template_path)
