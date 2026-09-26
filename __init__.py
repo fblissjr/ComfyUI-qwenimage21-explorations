@@ -7,6 +7,10 @@ The `src/` package is importable without ComfyUI; only this shim needs it.
 import sys
 from pathlib import Path
 
+# The expander's thinking dropdown (web/qwenimage21_expander.js). Read by
+# ComfyUI's loader apart from the entrypoint, so a V3 pack serves it too.
+WEB_DIRECTORY = "./web"
+
 _SRC = Path(__file__).parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))

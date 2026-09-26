@@ -4,6 +4,16 @@
 
 ### Added
 
+- A "thinking" dropdown on `QwenImage21PEExpand` (`web/qwenimage21_expander.js`,
+  served through `WEB_DIRECTORY`), as heylook's chat panel has it: Default
+  (named for what it runs), Off where the model has a switch, then the chosen
+  model's own depth words with its default marked, read through the models
+  route below. It sets the node's `thinking` and `reasoning_effort` inputs,
+  which it hides; it is UI only, so saved workflows and API graphs are
+  unchanged. A typed word the model does not offer shows as such rather than
+  as a default, and a preset that names thinking locks it to what will run.
+  The rules are `web/thinking_level.js`, the same as the imagegen app's.
+
 - `/qwenimage21/heylook/models` rows carry `thinking`: the model's `switch`
   and `depth` from heylook's `engine.thinking`, or null where the server did
   not report them. `depth.values` and `aliases` are the only words heylook
