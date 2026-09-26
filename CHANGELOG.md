@@ -4,15 +4,21 @@
 
 ### Added
 
-- A "thinking" dropdown on `QwenImage21PEExpand` (`web/qwenimage21_expander.js`,
-  served through `WEB_DIRECTORY`), as heylook's chat panel has it: Default
-  (named for what it runs), Off where the model has a switch, then the chosen
-  model's own depth words with its default marked, read through the models
-  route below. It sets the node's `thinking` and `reasoning_effort` inputs,
-  which it hides; it is UI only, so saved workflows and API graphs are
-  unchanged. A typed word the model does not offer shows as such rather than
-  as a default, and a preset that names thinking locks it to what will run.
-  The rules are `web/thinking_level.js`, the same as the imagegen app's.
+- Dropdowns on `QwenImage21PEExpand` for `model`, `preset` and thinking
+  (`web/qwenimage21_expander.js`, served through `WEB_DIRECTORY`), filled from
+  the heylook server at the node's `base_url` through the routes below. Model
+  lists what the server serves (only vision models for edit), blank being the
+  trained expander; preset lists the stored presets by name (by id where two
+  share a name). Thinking is one control, as heylook's chat panel has it:
+  Default (named for what it runs), Off where the model has a switch, then the
+  model's own depth words with its default marked. Each dropdown sits where its
+  input was and writes it; the inputs are hidden and are still what the graph
+  sends, so saved workflows and API graphs are unchanged. A value the lists do
+  not hold stays and says why (not served, no vision, not offered by this
+  model), and where the server cannot be reached the text boxes come back.
+  Picking a model drops a depth word it does not take. The rules are
+  `web/expander_lists.js` and `web/thinking_level.js`, matching the imagegen
+  app's.
 
 - `/qwenimage21/heylook/models` rows carry `thinking`: the model's `switch`
   and `depth` from heylook's `engine.thinking`, or null where the server did
