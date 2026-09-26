@@ -1,0 +1,4 @@
+[test]
+# Only the web extension's tests. Left to scan from the repo root, bun walks
+# into coderef/, whose links reach whole sister repos, and runs out of memory.
+root = "tests/js"

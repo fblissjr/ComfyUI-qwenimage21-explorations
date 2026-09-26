@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.6.0
+
+### Added
+
+- `scripts/check_presets_live.py --base-url URL`: sends every stored heylook
+  preset's request, as the expander plans it, once per task and model (the
+  trained expander by default), capped at one token, and fails on any the
+  server refuses, with its reason. The node's tests stub heylook, so they hold
+  its contract as it was written; a preset's stored depth sent to a model with
+  no depth control passed them and was a 400 on the real server. Checked
+  2026-09-26: every stored preset accepted for t2i and edit, and the same
+  preset check with the node's old pass-through depth refused with that 400.
+- `bun test` for the web extension (`tests/js`, scoped by `bunfig.toml`): the
+  dropdown rules, the model and preset lists, the extension on a stand-in
+  node, and parity with the imagegen app's `thinkingOptions`.
+
+### Changed
+
+- The expander's request is planned in `expander.py` (`plan`), outside
+  ComfyUI, so the node and the live check build the same request.
+  `HEYLOOK_MODELS` moved there; `nodes.HEYLOOK_MODELS` still names it.
+
+### Fixed
+
+- The `reasoning_effort` tooltip and a test docstring called a word the model
+  does not offer "a server error" and "a 500". heylook answers a 400.
+- The README's test command. `pytest tests` from the repo root imports the
+  root `__init__.py` (pytest collects the root as a package), which loads
+  ComfyUI and takes a CUDA context, so every test errored while a ComfyUI job
+  held the GPU. Run from `tests/` with `--rootdir=.`, the suite passes then.
+
 ## 0.5.0
 
 ### Added

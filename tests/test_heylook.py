@@ -290,7 +290,7 @@ def test_a_typed_reasoning_effort_is_sent(nodes, monkeypatch):
 
 
 def test_a_blank_reasoning_effort_sends_nothing(nodes, monkeypatch):
-    """Absent lets the model's template decide; a wrong word for the model is a 500."""
+    """Absent lets the model's template decide. A word the model does not offer is a 400."""
     assert _expand_with(nodes, monkeypatch)["extra"] is None
 
 

@@ -24,9 +24,9 @@ from comfy_api.latest import ComfyExtension, io
 from typing_extensions import override
 
 from .. import answer as answer_mod
-from .. import canvas as canvas_mod, chat, routes, sage, sigmas as sigmas_mod, templates
+from .. import canvas as canvas_mod, chat, expander, routes, sage, sigmas as sigmas_mod, templates
 from ..backends import heylook
-from ..profiles import GREEDY, PROFILES, with_preset
+from ..profiles import PROFILES
 
 CATEGORY = "QwenImage21/PE"
 CATEGORY_OPTIMIZE = "QwenImage21/optimize"
@@ -401,8 +401,7 @@ async def comfy_entrypoint() -> QwenImage21Extension:
 # The expander, as one node
 
 
-#: heylook serves the two expanders under these names; see the smoke script.
-HEYLOOK_MODELS = {"t2i": "Qwen-Image-2.1-PE-T21-mlx", "edit": "Qwen-Image-2.1-PE-I21-mlx"}
+HEYLOOK_MODELS = expander.HEYLOOK_MODELS
 
 
 def _to_pil(image):
@@ -478,8 +477,8 @@ class PEExpand(io.ComfyNode):
                 io.String.Input("reasoning_effort", default="", optional=True,
                                 tooltip=(
                                     "How much the model reasons, for a model whose /v1/models row lists "
-                                    "the reasoning_effort capability. The words are the model's own and a "
-                                    "wrong one is a server error. Blank sends none, which leaves it to the "
+                                    "the reasoning_effort capability. The words are the model's own, and "
+                                    "heylook refuses any other with a 400. Blank sends none, which leaves it to the "
                                     "preset and then to the model. Set, it beats the preset's. Not sent "
                                     "with thinking off on a model that has a thinking switch, and a "
                                     "preset's is dropped where the model does not offer it."
@@ -511,53 +510,23 @@ class PEExpand(io.ComfyNode):
                 local_template="(none)", system_override="", thinking=True, timeout=900,
                 max_pixels=heylook.DEFAULT_MAX_PIXELS, reasoning_effort="",
                 images: io.Autogrow.Type = None) -> io.NodeOutput:
-        preset_fields, preset_system = {}, ""
-        if preset.strip():
-            found = heylook.find_preset(heylook.list_presets(base_url), preset)
-            preset_fields, preset_system = heylook.expand_preset(found)
-
         tpl = _TEMPLATES_DIR / f"{local_template}.md" if local_template not in ("", "(none)") else None
-        # Order: raw text, then a local template, then the preset, then the
-        # checkpoint, then none at all. A preset beats the checkpoint because nearly every stored
-        # one carries a system prompt and picking it is the point -- silently
-        # preferring the checkpoint would ignore exactly what was asked for.
-        # `system_source` is an output so the winner is never a guess.
-        resolved = templates.resolve_with_preset(
-            explicit_text=system_override,
-            template_path=tpl,
-            preset_text=preset_system,
-            ckpt_dir=checkpoint_dir.strip() or None,
-        )
-        system, source = resolved.text, resolved.source
-
+        p = expander.plan(task=task, base_url=base_url, model=model, sampling=sampling, preset=preset,
+                          checkpoint_dir=checkpoint_dir, template_path=tpl,
+                          system_override=system_override, thinking=thinking,
+                          reasoning_effort=reasoning_effort)
         frames = _autogrow_images(images)
-        profile, extra = with_preset((GREEDY if sampling == "greedy" else PROFILES)[task], preset_fields)
-        thinking = profile.pop("thinking", thinking)
-        model_id = model.strip() or HEYLOOK_MODELS[task]
-        # Typed beats the preset's. Either is checked against the model's own
-        # controls, which cost a lookup only when there is a depth to check.
-        typed = reasoning_effort.strip()
-        effort = typed or str(extra.pop("reasoning_effort", "") or "").strip()
-        if effort:
-            sent = heylook.depth_to_send(effort, _thinking_controls(base_url, model_id),
-                                         thinking=thinking is not False, typed=bool(typed))
-            if sent:
-                extra["reasoning_effort"] = sent
-            else:
-                logging.warning("[QwenImage21PEExpand] reasoning_effort %r not sent to %s: it does not "
-                                "reach the model (thinking off, or not a depth the model offers)",
-                                effort, model_id)
         resp = heylook.generate(
             base_url=base_url,
-            model=model_id,
-            system=system,
+            model=p.model,
+            system=p.system,
             brief=brief,
             images=[_to_pil(f) for f in frames],
             max_pixels=max_pixels,
-            thinking=thinking,
-            extra=extra or None,
+            thinking=p.thinking,
+            extra=p.extra or None,
             timeout=timeout,
-            **profile,
+            **p.profile,
         )
         # heylook split the thinking itself; use its split rather than rejoining and re-splitting.
         graded = answer_mod.grade_parts(resp.thinking, resp.text, task=task, n_images=len(frames))
@@ -567,21 +536,8 @@ class PEExpand(io.ComfyNode):
             violations.insert(0, "response:truncated")
         return io.NodeOutput(
             graded.rewritten_prompt, graded.wh_ratio, graded.ratio_follow, graded.thinking,
-            graded.contract_ok, ", ".join(violations), source,
+            graded.contract_ok, ", ".join(violations), p.system_source,
         )
-
-
-def _thinking_controls(base_url: str, model_id: str) -> dict | None:
-    """The model's thinking controls from the server, or None when they cannot
-    be had -- unreachable, not listed, or not reported -- so the caller sends
-    what it has and heylook judges it."""
-    try:
-        rows = heylook.list_models(base_url)
-    except Exception as e:  # the generate call reports an unreachable server itself
-        logging.info("[QwenImage21PEExpand] model lookup failed, depth sent unchecked: %s", e)
-        return None
-    row = next((r for r in rows if r.get("id") == model_id), None)
-    return heylook.model_thinking(row) if row else None
 
 
 # ---------------------------------------------------------------------------
