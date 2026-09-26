@@ -34,9 +34,22 @@ def test_presets_keep_ids_names_and_params_only():
         {"id": "a1", "name": "qwen_image-edit", "params": {"enable_thinking": True, "max_tokens": 16000}}]
 
 
-def test_models_keep_only_id_and_capabilities():
-    raw = [{"id": "m", "capabilities": ["chat", "vision"], "sampler_defaults": {}, "engine": {}}]
-    assert heylook.summarise_models(raw) == [{"id": "m", "capabilities": ["chat", "vision"]}]
+def test_models_keep_id_capabilities_and_thinking_controls():
+    """The thinking controls carry each model's own depth words, which heylook
+    checks a request against; a page cannot offer the right ones without them."""
+    depth = {"variable": "reasoning_effort", "values": ["xhigh", "medium", "low"], "aliases": {"high": "xhigh"},
+             "default": "xhigh", "unknown": "raises", "changes_prefix": True, "off": []}
+    raw = [{"id": "m", "capabilities": ["chat", "vision"], "sampler_defaults": {},
+            "engine": {"settings": {}, "thinking": {"switch": "enable_thinking", "depth": depth,
+                                                    "template": "chat_template.jinja", "budget": None}}}]
+    assert heylook.summarise_models(raw) == [
+        {"id": "m", "capabilities": ["chat", "vision"], "thinking": {"switch": "enable_thinking", "depth": depth}}]
+
+
+def test_a_model_without_thinking_controls_says_so():
+    """An older server, or one that could not read the template: null, not a guess."""
+    assert heylook.summarise_models([{"id": "m", "capabilities": ["chat"]}]) == [
+        {"id": "m", "capabilities": ["chat"], "thinking": None}]
 
 
 def test_the_presets_route_answers_in_heylook_s_shape(monkeypatch):
@@ -51,7 +64,8 @@ def test_the_presets_route_answers_in_heylook_s_shape(monkeypatch):
 
 def test_the_models_route_answers_in_heylook_s_shape(monkeypatch):
     monkeypatch.setattr(heylook, "list_models", lambda url, timeout=30: [{"id": "m", "capabilities": ["vision"]}])
-    assert call(routes.models, base_url="http://box:8080") == (200, {"data": [{"id": "m", "capabilities": ["vision"]}]})
+    assert call(routes.models, base_url="http://box:8080") == (
+        200, {"data": [{"id": "m", "capabilities": ["vision"], "thinking": None}]})
 
 
 def test_no_address_is_a_400_not_a_request(monkeypatch):

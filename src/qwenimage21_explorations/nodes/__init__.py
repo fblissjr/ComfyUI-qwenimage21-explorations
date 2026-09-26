@@ -480,7 +480,9 @@ class PEExpand(io.ComfyNode):
                                     "How much the model reasons, for a model whose /v1/models row lists "
                                     "the reasoning_effort capability. The words are the model's own and a "
                                     "wrong one is a server error. Blank sends none, which leaves it to the "
-                                    "preset and then to the model. Set, it beats the preset's."
+                                    "preset and then to the model. Set, it beats the preset's. Not sent "
+                                    "with thinking off on a model that has a thinking switch, and a "
+                                    "preset's is dropped where the model does not offer it."
                                 )),
                 io.Autogrow.Input(
                     "images",
@@ -531,11 +533,23 @@ class PEExpand(io.ComfyNode):
         frames = _autogrow_images(images)
         profile, extra = with_preset((GREEDY if sampling == "greedy" else PROFILES)[task], preset_fields)
         thinking = profile.pop("thinking", thinking)
-        if reasoning_effort.strip():
-            extra["reasoning_effort"] = reasoning_effort.strip()
+        model_id = model.strip() or HEYLOOK_MODELS[task]
+        # Typed beats the preset's. Either is checked against the model's own
+        # controls, which cost a lookup only when there is a depth to check.
+        typed = reasoning_effort.strip()
+        effort = typed or str(extra.pop("reasoning_effort", "") or "").strip()
+        if effort:
+            sent = heylook.depth_to_send(effort, _thinking_controls(base_url, model_id),
+                                         thinking=thinking is not False, typed=bool(typed))
+            if sent:
+                extra["reasoning_effort"] = sent
+            else:
+                logging.warning("[QwenImage21PEExpand] reasoning_effort %r not sent to %s: it does not "
+                                "reach the model (thinking off, or not a depth the model offers)",
+                                effort, model_id)
         resp = heylook.generate(
             base_url=base_url,
-            model=model.strip() or HEYLOOK_MODELS[task],
+            model=model_id,
             system=system,
             brief=brief,
             images=[_to_pil(f) for f in frames],
@@ -555,6 +569,19 @@ class PEExpand(io.ComfyNode):
             graded.rewritten_prompt, graded.wh_ratio, graded.ratio_follow, graded.thinking,
             graded.contract_ok, ", ".join(violations), source,
         )
+
+
+def _thinking_controls(base_url: str, model_id: str) -> dict | None:
+    """The model's thinking controls from the server, or None when they cannot
+    be had -- unreachable, not listed, or not reported -- so the caller sends
+    what it has and heylook judges it."""
+    try:
+        rows = heylook.list_models(base_url)
+    except Exception as e:  # the generate call reports an unreachable server itself
+        logging.info("[QwenImage21PEExpand] model lookup failed, depth sent unchecked: %s", e)
+        return None
+    row = next((r for r in rows if r.get("id") == model_id), None)
+    return heylook.model_thinking(row) if row else None
 
 
 # ---------------------------------------------------------------------------

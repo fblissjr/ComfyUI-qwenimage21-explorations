@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.0
+
+### Added
+
+- `/qwenimage21/heylook/models` rows carry `thinking`: the model's `switch`
+  and `depth` from heylook's `engine.thinking`, or null where the server did
+  not report them. `depth.values` and `aliases` are the only words heylook
+  takes for that model, so a page can offer those and nothing else.
+
+### Fixed
+
+- `QwenImage21PEExpand` no longer fails on a depth that does not reach the
+  model. heylook (v2.0.95 on) answers a 400 for a `reasoning_effort` the
+  model's template does not offer, and checks it with thinking off too. A
+  stored preset's depth (several carry `medium`) failed every run on the
+  trained expanders, whose templates have no depth control. The node now
+  checks the depth against the model's controls before sending
+  (`heylook.depth_to_send`): none with thinking off on a model that has a
+  switch, none to a model without a depth control, and a preset's word the
+  model does not offer is dropped with a warning. A typed word the model does
+  not offer still goes, so heylook's 400 names the right ones. When the
+  controls cannot be looked up the depth goes as before.
+
 ## 0.4.0
 
 ### Added

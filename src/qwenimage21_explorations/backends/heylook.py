@@ -107,9 +107,43 @@ def summarise_presets(presets: list[dict]) -> list[dict]:
     return [{"id": p.get("id"), "name": p.get("name"), "params": p.get("params") or {}} for p in presets]
 
 
+def model_thinking(row: dict) -> dict | None:
+    """A model row's thinking controls: the switch variable and the depth, whose
+    `values` and `aliases` are the only words heylook takes for that model. None
+    when the server did not report them (older, or no template to read), which
+    is unknown, not "no controls"."""
+    t = (row.get("engine") or {}).get("thinking")
+    return {"switch": t.get("switch"), "depth": t.get("depth")} if isinstance(t, dict) else None
+
+
 def summarise_models(models: list[dict]) -> list[dict]:
-    """Each model's id and capabilities."""
-    return [{"id": m.get("id"), "capabilities": m.get("capabilities") or []} for m in models]
+    """Each model's id, capabilities and thinking controls."""
+    return [{"id": m.get("id"), "capabilities": m.get("capabilities") or [], "thinking": model_thinking(m)}
+            for m in models]
+
+
+def depth_to_send(value: str, controls: dict | None, *, thinking: bool, typed: bool) -> str | None:
+    """The depth to send, or None to send none.
+
+    heylook refuses a depth word the model does not offer with a 400, and checks
+    it with thinking off too, so a depth that reaches nothing can still fail the
+    run. Not sent: with thinking off on a model that has a switch (one with none,
+    harmony, reads depth regardless); to a model with no depth control; and a
+    preset's word the model does not offer, since a stored preset is written for
+    whatever model it was made with -- heylook drops its own stored depth the
+    same way. A typed word goes regardless: the 400 names the model's words.
+    Unknown controls send it as-is and leave heylook to judge.
+    """
+    if not value or controls is None:
+        return value or None
+    if not thinking and controls.get("switch"):
+        return None
+    depth = controls.get("depth")
+    if depth is None:
+        return None
+    offered = depth.get("unknown") == "verbatim" or value in (depth.get("values") or []) \
+        or value in (depth.get("aliases") or {})
+    return value if offered or typed else None
 
 
 def find_preset(presets: list[dict], wanted: str) -> dict:

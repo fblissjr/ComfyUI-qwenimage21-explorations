@@ -171,6 +171,7 @@ PRESETS = [
     {"id": "bbb", "name": "coreh3", "system_prompt": "Convert the request...", "params": {}},
     {"id": "ccc", "name": "dupe", "params": {}},
     {"id": "ddd", "name": "DUPE", "params": {}},
+    {"id": "eee", "name": "deep", "params": {"enable_thinking": True, "reasoning_effort": "medium"}},
 ]
 
 
@@ -278,6 +279,8 @@ def _expand_with(nodes, monkeypatch, **kwargs):
 
     monkeypatch.setattr(nodes.heylook, "generate", fake_generate)
     monkeypatch.setattr(nodes.heylook, "list_presets", lambda base_url: PRESETS)
+    served = kwargs.pop("served", [])
+    monkeypatch.setattr(nodes.heylook, "list_models", lambda base_url: served)
     nodes.PEExpand.execute("t2i", "http://h", kwargs.pop("model", ""), "reference", "a brief", **kwargs)
     return sent
 
@@ -308,3 +311,73 @@ def test_performance_rides_the_response_and_derives_the_split():
 def test_a_server_without_performance_reports_nothing_rather_than_zero():
     r = normalise_response(payload([{"type": "text", "text": "{}"}]))
     assert r.performance == {} and r.prefill_ms is None and r.decode_ms is None
+
+
+# Thinking controls as heylook's /v1/models reports them (engine.thinking).
+def _served(model, switch, depth):
+    return [{"id": model, "capabilities": ["chat"], "engine": {"thinking": {"switch": switch, "depth": depth}}}]
+
+
+QWEN38_DEPTH = {"variable": "reasoning_effort", "values": ["xhigh", "medium", "low"],
+                "aliases": {"high": "xhigh"}, "default": "xhigh", "unknown": "raises", "off": []}
+HARMONY_DEPTH = {"variable": "reasoning_effort", "values": ["medium"], "aliases": {},
+                 "default": "medium", "unknown": "verbatim", "off": []}
+
+
+def test_a_depth_the_model_offers_is_sent(nodes, monkeypatch):
+    served = _served("q", "enable_thinking", QWEN38_DEPTH)
+    assert _expand_with(nodes, monkeypatch, model="q", served=served,
+                        reasoning_effort="low")["extra"] == {"reasoning_effort": "low"}
+
+
+def test_an_alias_the_model_takes_is_sent(nodes, monkeypatch):
+    served = _served("q", "enable_thinking", QWEN38_DEPTH)
+    assert _expand_with(nodes, monkeypatch, model="q", served=served,
+                        reasoning_effort="high")["extra"] == {"reasoning_effort": "high"}
+
+
+def test_a_depth_is_not_sent_with_thinking_off(nodes, monkeypatch):
+    """heylook checks the word even with thinking off, so a depth that reaches
+    nothing can still fail the run."""
+    served = _served("q", "enable_thinking", QWEN38_DEPTH)
+    assert _expand_with(nodes, monkeypatch, model="q", served=served, thinking=False,
+                        reasoning_effort="low")["extra"] is None
+
+
+def test_a_model_with_no_switch_gets_its_depth_with_thinking_off(nodes, monkeypatch):
+    """harmony has no enable_thinking and reads its depth regardless."""
+    served = _served("g", None, HARMONY_DEPTH)
+    assert _expand_with(nodes, monkeypatch, model="g", served=served, thinking=False,
+                        reasoning_effort="high")["extra"] == {"reasoning_effort": "high"}
+
+
+def test_a_preset_depth_the_model_has_no_control_for_is_dropped(nodes, monkeypatch):
+    """A stored preset carries a depth written for some other model. Sent to a
+    trained expander, whose template has no depth, it was a 400."""
+    served = _served(nodes.HEYLOOK_MODELS["t2i"], "enable_thinking", None)
+    assert _expand_with(nodes, monkeypatch, served=served, preset="deep")["extra"] is None
+
+
+def test_a_preset_depth_the_model_does_not_offer_is_dropped(nodes, monkeypatch):
+    served = _served("d", "enable_thinking", {**QWEN38_DEPTH, "values": ["high", "max"], "aliases": {}})
+    assert _expand_with(nodes, monkeypatch, model="d", served=served, preset="deep")["extra"] is None
+
+
+def test_a_preset_depth_the_model_offers_is_sent(nodes, monkeypatch):
+    served = _served("q", "enable_thinking", QWEN38_DEPTH)
+    assert _expand_with(nodes, monkeypatch, model="q", served=served,
+                        preset="deep")["extra"] == {"reasoning_effort": "medium"}
+
+
+def test_a_typed_depth_the_model_does_not_offer_still_goes(nodes, monkeypatch):
+    """Typed is asked for: heylook's 400 names the model's words, which is the
+    answer. Dropping it would run at a depth nobody chose."""
+    served = _served("q", "enable_thinking", QWEN38_DEPTH)
+    assert _expand_with(nodes, monkeypatch, model="q", served=served,
+                        reasoning_effort="max")["extra"] == {"reasoning_effort": "max"}
+
+
+def test_a_depth_goes_as_is_when_the_model_cannot_be_looked_up(nodes, monkeypatch):
+    """No controls is unknown, not "no depth": heylook judges it."""
+    assert _expand_with(nodes, monkeypatch, model="q", served=[],
+                        reasoning_effort="low")["extra"] == {"reasoning_effort": "low"}
